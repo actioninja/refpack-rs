@@ -1,0 +1,12 @@
+[package]
+name = "refpack-rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.56"
+description = "A crate providing compression/decompression for the RefPack compression format, utilized by many early 2000s EA games"
+authors = ["actioninja"]
+license = "MPL-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
