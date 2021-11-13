@@ -1,5 +1,5 @@
 [package]
-name = "refpack-rs"
+name = "refpack"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.56"
@@ -10,3 +10,10 @@ license = "MPL-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bitvec = "0.22.3"
+byteorder = "1.4.3"
+binrw = "0.8.0"
+
+[dev-dependencies]
+proptest = "1.0.0"
+test-strategy = "0.1.2"
