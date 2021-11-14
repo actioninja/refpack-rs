@@ -395,11 +395,12 @@ mod tests {
     ) {
         let stop = Command::new(offset, length, literal);
         let mut buf = Cursor::new(vec![]);
-        stop.write_options(&mut buf, &WriteOptions::default(), ());
-        buf.seek(SeekFrom::Start(0));
+        stop.write_options(&mut buf, &WriteOptions::default(), ())
+            .unwrap();
+        buf.seek(SeekFrom::Start(0)).unwrap();
         let out: Command = Command::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
 
-        prop_assert_eq!(out, stop)
+        prop_assert_eq!(out, stop);
     }
 
     #[proptest]
@@ -408,21 +409,23 @@ mod tests {
 
         let stop = Command::new_literal(real_length);
         let mut buf = Cursor::new(vec![]);
-        stop.write_options(&mut buf, &WriteOptions::default(), ());
-        buf.seek(SeekFrom::Start(0));
+        stop.write_options(&mut buf, &WriteOptions::default(), ())
+            .unwrap();
+        buf.seek(SeekFrom::Start(0)).unwrap();
         let out: Command = Command::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
 
-        prop_assert_eq!(out, stop)
+        prop_assert_eq!(out, stop);
     }
 
     #[proptest]
     fn symmetrical_command_stop(#[strategy(0..=3_usize)] input: usize) {
         let stop = Command::new_stop(input);
         let mut buf = Cursor::new(vec![]);
-        stop.write_options(&mut buf, &WriteOptions::default(), ());
-        buf.seek(SeekFrom::Start(0));
+        stop.write_options(&mut buf, &WriteOptions::default(), ())
+            .unwrap();
+        buf.seek(SeekFrom::Start(0)).unwrap();
         let out: Command = Command::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
 
-        prop_assert_eq!(out, stop)
+        prop_assert_eq!(out, stop);
     }
 }

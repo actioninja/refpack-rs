@@ -43,6 +43,7 @@ pub fn easy_compress(input: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(writer.into_inner())
 }
 
+///
 pub fn decompress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> Result<(), Error> {
     let _compressed_length = reader.read_u32::<LittleEndian>()?;
 
