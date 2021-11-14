@@ -18,7 +18,6 @@ pub mod error;
 
 use crate::error::Error;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use std::fs::read;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 const MAGIC: u16 = 0x10FB;
