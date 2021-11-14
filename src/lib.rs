@@ -32,10 +32,20 @@ fn copy_within_slice<T: Copy>(v: &mut [T], from: usize, to: usize, len: usize) {
     }
 }
 
+/// # Errors
+///
+/// Will return `Error::Io` if there is an IO error
 pub fn compress<R: Read + Seek, W: Write>(_reader: &mut R, _writer: &mut W) -> Result<(), Error> {
     todo!()
 }
 
+/// Wrapped compress function with a bit easier and cleaner of an API.
+/// Takes a slice of uncompressed bytes and returns a Vec of compressed bytes
+/// In implementation this just creates `Cursor`s for the reader and writer and calls `compress`
+///
+/// # Errors
+///
+/// Will return `Error::Io` if there is an IO error
 pub fn easy_compress(input: &[u8]) -> Result<Vec<u8>, Error> {
     let mut reader = Cursor::new(input);
     let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
@@ -43,7 +53,10 @@ pub fn easy_compress(input: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(writer.into_inner())
 }
 
+/// # Errors
 ///
+/// Will return `Error::InvalidMagic` if the header is malformed, indicating uncompressed data
+/// Will return `Error::Io` if there is an IO error
 pub fn decompress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> Result<(), Error> {
     let _compressed_length = reader.read_u32::<LittleEndian>()?;
 
@@ -59,8 +72,8 @@ pub fn decompress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> R
         Cursor::new(vec![0; decompressed_length as usize]);
 
     for control in control::Iter::new(reader) {
-        if let Some(bytes) = control.bytes {
-            decompression_buffer.write_all(&bytes)?;
+        if !control.bytes.is_empty() {
+            decompression_buffer.write_all(&control.bytes)?;
         }
 
         if let Some((offset, length)) = control.command.offset_copy() {
@@ -88,6 +101,14 @@ pub fn decompress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> R
     Ok(())
 }
 
+/// Wrapped decompress function with a bit easier and cleaner of an API.
+/// Takes a slice of bytes and returns a Vec of bytes
+/// In implementation this just creates `Cursor`s for the reader and writer and calls `decompress`
+///
+/// # Errors
+///
+/// Will return `Error::InvalidMagic` if the header is malformed, indicating uncompressed data
+/// Will return `Error::Io` if there is an IO error
 pub fn easy_decompress(input: &[u8]) -> Result<Vec<u8>, Error> {
     let mut reader = Cursor::new(input);
     let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);

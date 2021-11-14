@@ -8,93 +8,113 @@
 use binrw::{binrw, BinRead, BinResult, BinWrite, ReadOptions, WriteOptions};
 use bitvec::prelude::*;
 use byteorder::ReadBytesExt;
+#[cfg(test)]
+use proptest::collection::{size_range, vec};
+#[cfg(test)]
+use proptest::prelude::*;
 use std::io::{Read, Seek, Write};
+#[cfg(test)]
+use test_strategy::Arbitrary;
 
 /// ## Key for description:
-/// - Length: Length of the control in bytes
-/// - Plain Text Range: Possible range of values of plain text
-/// - Plain Text Magic: Magic number added to the number of plain text to copy
-/// - Copy Range: Possible range of values of number to copy
-/// - Copy Magic: Magic number added to the number to copy
-/// - Offset Range: Possible range of offsets
-/// - Offset Magic: Magic number added to the offset
-/// - Layout: Bit layout of the control bytes
-
+/// - Length: Length of the command in bytes
+/// - Literal Range: Possible range of number of literal bytes to copy
+/// - Literal Magic: Magic number offset for reading literal bytes
+/// - Copy Length Range: Possible range of copy length
+/// - Copy Length Magic: Magic number offset for reading copy length
+/// - Position Range: Possible range of positions
+/// - Position Magic: Magic number offset for reading position
+/// - Layout: Bit layout of the command bytes
+///
 /// ## Key for layout
 /// - 0 or 1: header
-/// - F: oFfset (F to not be confused with 0)
-/// - N: Number to Copy
-/// - P: Plaintext
+/// - P: Position
+/// - L: Length
+/// - B: Literal bytes Length
 /// - -: Nibble Separator
-/// - --: Byte Separator
-
+/// - |: Byte Separator
+///
 /// Numbers are always "smashed" together into as small of a space as possible
-/// EX: Getting the offset from "0FFN-NNPP--FFFF-FFFF"
-/// 1. mask first byte: `(byte0 & 0b0110_0000)` = 0FF0-0000
-/// 2. shift left by 3: `(0FF0-0000 << 3)` = 0000-00FF--0000-0000
-/// 3. OR with second:  `(0000-00FF--0000-0000 | 0000-0000--FFFF-FFFF)` = 0000-00FF--FFFF-FFFF
+/// EX: Getting the position from "0PPL-LLBB--PPPP-PPPP"
+/// 1. mask first byte: `(byte0 & 0b0110_0000)` = 0PP0-0000
+/// 2. shift left by 3: `(0PP0-0000 << 3)` = 0000-00PP--0000-0000
+/// 3. OR with second:  `(0000-00PP--0000-0000 | 0000-0000--PPPP-PPPP)` = 0000-00PP--PPPP-PPPP
 /// Another way to do this would be to first shift right by 5 and so on
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub enum Command {
     /// - Length: 2
-    /// - Plain Text Range: 0-3
-    /// - Plain Text Magic: 0
-    /// - Copy Range: 3-10
-    /// - Copy Magic: +3
-    /// - Offset Range: 1-1023
-    /// - Offset Magic: +1
-    /// - Layout: 0FFN-NNPP|FFFF-FFFF
+    /// - Literal Range: 0-3
+    /// - Literal Magic: 0
+    /// - Length Range: 3-10
+    /// - Length Magic: +3
+    /// - Position Range: 1-1023
+    /// - Position Magic: +1
+    /// - Layout: 0PPL-LLBB|PPPP-PPPP
     Short {
+        #[cfg_attr(test, strategy(1..=1023_u16))]
         offset: u16,
+        #[cfg_attr(test, strategy(3..=10_u8))]
         length: u8,
+        #[cfg_attr(test, strategy(0..=3_u8))]
         literal: u8,
     },
     /// - Length: 3
-    /// - Plain Text Range: 0-3
-    /// - Plain Text Magic: 0
-    /// - Copy Range: 4-67
-    /// - Copy Magic: +4
-    /// - Offset Range: 1-16383
-    /// - Offset Magic: +1
-    /// - Layout: 10NN-NNNN|PPFF-FFFF|FFFF-FFFF
+    /// - Literal Range: 0-3
+    /// - Literal Magic: 0
+    /// - Length Range: 4-67
+    /// - Length Magic: +4
+    /// - Position Range: 1-16383
+    /// - Position Magic: +1
+    /// - Layout: 10LL-LLLL|BBPP-PPPP|PPPP-PPPP
     Medium {
+        #[cfg_attr(test, strategy(1..=16383_u16))]
         offset: u16,
+        #[cfg_attr(test, strategy(4..=67_u8))]
         length: u8,
+        #[cfg_attr(test, strategy(0..=3_u8))]
         literal: u8,
     },
     /// - Length: 4
-    /// - Plain Text Range: 0-3
-    /// - Plain Text Magic: 0
-    /// - Copy Range: 5-1028
-    /// - Copy Magic: +5
-    /// - Offset Range: 1-131072
-    /// - Offset Magic: +1
-    /// - Layout: 110F-NNPP|FFFF-FFFF|FFFF-FFFF|NNNN-NNNN
+    /// - Literal Range: 0-3
+    /// - Literal Magic: 0
+    /// - Length Range: 5-1028
+    /// - Length Magic: +5
+    /// - Position Range: 1-131072
+    /// - Position Magic: +1
+    /// - Layout: 110P-LLBB|PPPP-PPPP|PPPP-PPPP|LLLL-LLLL
     Long {
+        #[cfg_attr(test, strategy(1..=131072_u32))]
         offset: u32,
+        #[cfg_attr(test, strategy(5..=1028_u16))]
         length: u16,
+        #[cfg_attr(test, strategy(0..=3_u8))]
         literal: u8,
     },
     /// - Length: 1
-    /// - Plain Text Range: 4-112; limited precision
-    /// - Plain Text Magic: +4
-    /// - Copy Range: 0
-    /// - Copy Magic: 0
-    /// - Offset Range: 0
-    /// - Offset Magic: 0
-    /// - Layout: 111P-PPPP
+    /// - Literal Range: 4-112; limited precision
+    /// - Literal Magic: +4
+    /// - Length Range: 0
+    /// - Length Magic: 0
+    /// - Position Range: 0
+    /// - Position Magic: 0
+    /// - Layout: 111B-BBBB
     /// - Notes: Magic bit shift happens here for unclear reasons, effectively multiplying
     ///        stored number by 4.
-    Literal(u8),
+    /// - Weird detail of how it's read; range is in fact capped at 112 even though it seems like
+    ///        it could be higher. The original program read by range of control as an absolute
+    ///        number, meaning that if the number was higher than 27, it would instead be read as a
+    ///        stopcode. Don't ask me.
+    Literal(#[cfg_attr(test, strategy((0..=27_u8).prop_map(|x| (x * 4) + 4)))] u8),
     /// - Length: 1
-    /// - Plain Text Range: 0-3
-    /// - Plain Text Magic: 0
-    /// - Copy Range: 0
-    /// - Copy Magic: 0
-    /// - Offset Range: 0
-    /// - Offset Magic: 0
+    /// - Literal Range: 0-3
+    /// - Literal Magic: 0
+    /// - Length Range: 0
+    /// - Length Magic: 0
+    /// - Position Range: 0
+    /// - Position Magic: 0
     /// - Layout: 1111-11PP
-    Stop(u8),
+    Stop(#[cfg_attr(test, strategy(0..=3_u8))] u8),
 }
 
 impl Command {
@@ -103,7 +123,7 @@ impl Command {
             panic!("Literal length must be less than 3 (got {})", literal);
         }
 
-        if offset > 13_1072 || length > 1028 {
+        if offset > 131_072 || length > 1028 {
             panic!("Invalid offset or length (Maximum offset 131072, got {}) (Maximum length 1028, got {})", offset, length);
         } else if offset > 16383 || length > 67 {
             Self::Long {
@@ -337,13 +357,25 @@ impl BinWrite for Command {
     }
 }
 
+#[cfg(test)]
+prop_compose! {
+    fn bytes_strategy(
+        length: usize,
+    )(
+        vec in vec(any::<u8>(), size_range(length)),
+    ) -> Vec<u8> {
+        vec
+    }
+}
+
 #[binrw]
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(Arbitrary))]
 pub struct Control {
     pub command: Command,
-    #[br(if(command.num_of_literal().is_some()))]
-    #[br(args { count: command.num_of_literal().unwrap() })]
-    pub bytes: Option<Vec<u8>>,
+    #[br(count(command.num_of_literal().unwrap_or(0)))]
+    #[cfg_attr(test, strategy(bytes_strategy(#command.num_of_literal().unwrap_or(0))))]
+    pub bytes: Vec<u8>,
 }
 
 pub struct Iter<'a, R: Read + Seek> {
@@ -393,39 +425,68 @@ mod tests {
         #[strategy(5..=1028_usize)] length: usize,
         #[strategy(0..=3_usize)] literal: usize,
     ) {
-        let stop = Command::new(offset, length, literal);
+        let expected = Command::new(offset, length, literal);
         let mut buf = Cursor::new(vec![]);
-        stop.write_options(&mut buf, &WriteOptions::default(), ())
+        expected
+            .write_options(&mut buf, &WriteOptions::default(), ())
             .unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
         let out: Command = Command::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
 
-        prop_assert_eq!(out, stop);
+        prop_assert_eq!(out, expected);
     }
 
     #[proptest]
     fn symmetrical_command_literal(#[strategy(0..=27_usize)] literal: usize) {
         let real_length = (literal * 4) + 4;
 
-        let stop = Command::new_literal(real_length);
+        let expected = Command::new_literal(real_length);
         let mut buf = Cursor::new(vec![]);
-        stop.write_options(&mut buf, &WriteOptions::default(), ())
+        expected
+            .write_options(&mut buf, &WriteOptions::default(), ())
             .unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
         let out: Command = Command::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
 
-        prop_assert_eq!(out, stop);
+        prop_assert_eq!(out, expected);
     }
 
     #[proptest]
     fn symmetrical_command_stop(#[strategy(0..=3_usize)] input: usize) {
-        let stop = Command::new_stop(input);
+        let expected = Command::new_stop(input);
         let mut buf = Cursor::new(vec![]);
-        stop.write_options(&mut buf, &WriteOptions::default(), ())
+        expected
+            .write_options(&mut buf, &WriteOptions::default(), ())
             .unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
         let out: Command = Command::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
 
-        prop_assert_eq!(out, stop);
+        prop_assert_eq!(out, expected);
+    }
+
+    #[proptest]
+    fn symmetrical_any_command(input: Command) {
+        let expected = input;
+        let mut buf = Cursor::new(vec![]);
+        expected
+            .write_options(&mut buf, &WriteOptions::default(), ())
+            .unwrap();
+        buf.seek(SeekFrom::Start(0)).unwrap();
+        let out: Command = Command::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
+
+        prop_assert_eq!(out, expected);
+    }
+
+    #[proptest]
+    fn symmetrical_control(input: Control) {
+        let expected = input;
+        let mut buf = Cursor::new(vec![]);
+        expected
+            .write_options(&mut buf, &WriteOptions::default(), ())
+            .unwrap();
+        buf.seek(SeekFrom::Start(0)).unwrap();
+        let out: Control = Control::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
+
+        prop_assert_eq!(out, expected);
     }
 }
