@@ -16,10 +16,10 @@
 mod control;
 pub mod error;
 
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
-use byteorder::{LittleEndian, BigEndian, ReadBytesExt };
-use crate::control::{Control, Command};
 use crate::error::Error;
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use std::fs::read;
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 const MAGIC: u16 = 0x10FB;
 
@@ -33,7 +33,7 @@ fn copy_within_slice<T: Copy>(v: &mut [T], from: usize, to: usize, len: usize) {
     }
 }
 
-pub fn compress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> Result<(), Error>{
+pub fn compress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> Result<(), Error> {
     todo!()
 }
 
@@ -44,8 +44,8 @@ pub fn easy_compress(input: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(writer.into_inner())
 }
 
-pub fn decompress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> Result<(), Error>{
-    let compressed_length = reader.read_u32::<LittleEndian>().unwrap();
+pub fn decompress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> Result<(), Error> {
+    let _compressed_length = reader.read_u32::<LittleEndian>()?;
 
     let magic = reader.read_u16::<BigEndian>()?;
 
@@ -55,7 +55,8 @@ pub fn decompress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> R
 
     let decompressed_length = reader.read_u24::<LittleEndian>()?;
 
-    let mut decompression_buffer: Cursor<Vec<u8>> = Cursor::new(vec![0; decompressed_length as usize]);
+    let mut decompression_buffer: Cursor<Vec<u8>> =
+        Cursor::new(vec![0; decompressed_length as usize]);
 
     for control in control::Iter::new(reader) {
         if let Some(bytes) = control.bytes {

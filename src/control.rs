@@ -5,11 +5,10 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-
-use std::io::{Read, Seek, Write};
-use binrw::{BinRead, BinResult, BinWrite, ReadOptions, WriteOptions, binrw};
+use binrw::{binrw, BinRead, BinResult, BinWrite, ReadOptions, WriteOptions};
 use bitvec::prelude::*;
 use byteorder::ReadBytesExt;
+use std::io::{Read, Seek, Write};
 
 /// ## Key for description:
 /// - Length: Length of the control in bytes
@@ -99,7 +98,6 @@ pub enum Command {
 }
 
 impl Command {
-
     pub fn new(offset: usize, length: usize, literal: usize) -> Self {
         if literal > 3 {
             panic!("Literal length must be less than 3 (got {})", literal);
@@ -130,7 +128,10 @@ impl Command {
 
     pub fn new_literal(length: usize) -> Self {
         if length > 112 {
-            panic!("Literal received too long of a literal length (max 112, got {})", length);
+            panic!(
+                "Literal received too long of a literal length (max 112, got {})",
+                length
+            );
         } else {
             Self::Literal(length as u8)
         }
@@ -138,7 +139,10 @@ impl Command {
 
     pub fn new_stop(literal_length: usize) -> Self {
         if literal_length > 3 {
-            panic!("Stopcode received too long of a literal length (max 3, got {})", literal_length)
+            panic!(
+                "Stopcode received too long of a literal length (max 3, got {})",
+                literal_length
+            )
         } else {
             Self::Stop(literal_length as u8)
         }
@@ -146,27 +150,16 @@ impl Command {
 
     pub fn num_of_literal(self) -> Option<usize> {
         match self {
-            Command::Short {
-                literal,
-                ..
-            }
-            | Command::Medium {
-                literal,
-                ..
-            }
-            | Command::Long {
-                literal,
-                ..
-            } => {
+            Command::Short { literal, .. }
+            | Command::Medium { literal, .. }
+            | Command::Long { literal, .. } => {
                 if literal == 0 {
                     None
                 } else {
                     Some(literal as usize)
                 }
             }
-            Command::Literal(number) => {
-                Some(number as usize)
-            }
+            Command::Literal(number) => Some(number as usize),
             Command::Stop(number) => {
                 if number == 0 {
                     None
@@ -179,31 +172,23 @@ impl Command {
 
     pub fn offset_copy(self) -> Option<(usize, usize)> {
         match self {
-            Command::Short {
-                offset,
-                length,
-                ..
+            Command::Short { offset, length, .. } | Command::Medium { offset, length, .. } => {
+                Some((offset as usize, length as usize))
             }
-            | Command::Medium {
-                offset,
-                length,
-                ..
-            } => Some((offset as usize, length as usize)),
-            Command::Long {
-                offset,
-                length,
-                ..
-            } => Some((offset as usize, length as usize)),
+            Command::Long { offset, length, .. } => Some((offset as usize, length as usize)),
             _ => None,
         }
     }
-
 }
 
 impl BinRead for Command {
     type Args = ();
 
-    fn read_options<R: Read + Seek>(reader: &mut R, _: &ReadOptions, _: Self::Args) -> BinResult<Self> {
+    fn read_options<R: Read + Seek>(
+        reader: &mut R,
+        _: &ReadOptions,
+        _: Self::Args,
+    ) -> BinResult<Self> {
         let first = reader.read_u8()?;
 
         match first {
@@ -220,7 +205,7 @@ impl BinRead for Command {
                     length,
                     literal,
                 })
-            },
+            }
             0x80..=0xBF => {
                 let byte1: usize = first as usize;
                 let byte2: usize = reader.read_u8()?.into();
@@ -252,7 +237,7 @@ impl BinRead for Command {
                     length,
                     literal,
                 })
-            },
+            }
             0xE0..=0xFB => Ok(Self::Literal(((first & 0b0001_1111) << 2) + 4)),
             0xFC..=0xFF => Ok(Self::Stop(first & 0b0000_0011)),
         }
@@ -262,7 +247,12 @@ impl BinRead for Command {
 impl BinWrite for Command {
     type Args = ();
 
-    fn write_options<W: Write + Seek>(&self, writer: &mut W, options: &WriteOptions, _: Self::Args) -> BinResult<()> {
+    fn write_options<W: Write + Seek>(
+        &self,
+        writer: &mut W,
+        options: &WriteOptions,
+        _: Self::Args,
+    ) -> BinResult<()> {
         match self {
             Command::Short {
                 offset,
@@ -389,23 +379,19 @@ impl<'a, R: Read + Seek> Iterator for Iter<'a, R> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use proptest::prop_assert_eq;
     use std::io::Cursor;
     use std::io::SeekFrom;
-    use proptest::prop_assert_eq;
-    use super::*;
     use test_strategy::proptest;
 
     #[proptest]
     fn symmetrical_command_copy(
-        #[strategy(1..=131071_usize)]
-        offset: usize,
-        #[strategy(5..=1028_usize)]
-        length: usize,
-        #[strategy(0..=3_usize)]
-        literal: usize,
+        #[strategy(1..=131071_usize)] offset: usize,
+        #[strategy(5..=1028_usize)] length: usize,
+        #[strategy(0..=3_usize)] literal: usize,
     ) {
         let stop = Command::new(offset, length, literal);
         let mut buf = Cursor::new(vec![]);
@@ -417,10 +403,7 @@ mod tests {
     }
 
     #[proptest]
-    fn symmetrical_command_literal(
-        #[strategy(0..=27_usize)]
-        literal: usize,
-    ) {
+    fn symmetrical_command_literal(#[strategy(0..=27_usize)] literal: usize) {
         let real_length = (literal * 4) + 4;
 
         let stop = Command::new_literal(real_length);
@@ -443,4 +426,3 @@ mod tests {
         prop_assert_eq!(out, stop)
     }
 }
-
