@@ -12,7 +12,6 @@ use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use binrw::{binrw, BinRead, BinResult, BinWrite, BinWriterExt, ReadOptions, WriteOptions};
 use bitvec::prelude::*;
 use byteorder::{LittleEndian, BigEndian, ReadBytesExt, WriteBytesExt};
-use proptest::collection::vec;
 use crate::control::{ControlIterator, Control, Command};
 use crate::error::Error;
 
