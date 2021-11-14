@@ -32,7 +32,7 @@ fn copy_within_slice<T: Copy>(v: &mut [T], from: usize, to: usize, len: usize) {
     }
 }
 
-pub fn compress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> Result<(), Error> {
+pub fn compress<R: Read + Seek, W: Write>(_reader: &mut R, _writer: &mut W) -> Result<(), Error> {
     todo!()
 }
 

@@ -364,7 +364,9 @@ impl<'a, R: Read + Seek> Iterator for Iter<'a, R> {
     type Item = Control;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if !self.reached_stop {
+        if self.reached_stop {
+            None
+        } else {
             Control::read_options(self.reader, &ReadOptions::default(), ())
                 .ok()
                 .map(|control| {
@@ -373,8 +375,6 @@ impl<'a, R: Read + Seek> Iterator for Iter<'a, R> {
                     }
                     control
                 })
-        } else {
-            None
         }
     }
 }
@@ -389,7 +389,7 @@ mod tests {
 
     #[proptest]
     fn symmetrical_command_copy(
-        #[strategy(1..=131071_usize)] offset: usize,
+        #[strategy(1..=131_071_usize)] offset: usize,
         #[strategy(5..=1028_usize)] length: usize,
         #[strategy(0..=3_usize)] literal: usize,
     ) {
