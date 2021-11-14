@@ -5,14 +5,20 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+#![warn(clippy::pedantic, clippy::cargo)]
+// Due to the high amount of byte conversions, sometimes intentional lossy conversions are necessary.
+#![allow(clippy::cast_possible_truncation)]
+// Default::default() is more idiomatic imo
+#![allow(clippy::default_trait_access)]
+// too many lines is a dumb metric
+#![allow(clippy::too_many_lines)]
+
 mod control;
 pub mod error;
 
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
-use binrw::{binrw, BinRead, BinResult, BinWrite, BinWriterExt, ReadOptions, WriteOptions};
-use bitvec::prelude::*;
-use byteorder::{LittleEndian, BigEndian, ReadBytesExt, WriteBytesExt};
-use crate::control::{ControlIterator, Control, Command};
+use byteorder::{LittleEndian, BigEndian, ReadBytesExt };
+use crate::control::{Control, Command};
 use crate::error::Error;
 
 const MAGIC: u16 = 0x10FB;
@@ -51,7 +57,7 @@ pub fn decompress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> R
 
     let mut decompression_buffer: Cursor<Vec<u8>> = Cursor::new(vec![0; decompressed_length as usize]);
 
-    for control in ControlIterator::new(reader) {
+    for control in control::Iter::new(reader) {
         if let Some(bytes) = control.bytes {
             decompression_buffer.write_all(&bytes)?;
         }
@@ -60,7 +66,7 @@ pub fn decompress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> R
             let decomp_pos = decompression_buffer.position() as usize;
             let src_pos = decomp_pos - offset;
 
-            let mut buf = decompression_buffer.get_mut();
+            let buf = decompression_buffer.get_mut();
 
             if (src_pos + length) < decomp_pos {
                 copy_within_slice(buf, src_pos, decomp_pos, length);

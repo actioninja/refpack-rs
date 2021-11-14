@@ -31,9 +31,9 @@ use byteorder::ReadBytesExt;
 
 /// Numbers are always "smashed" together into as small of a space as possible
 /// EX: Getting the offset from "0FFN-NNPP--FFFF-FFFF"
-/// 1. mask first byte: (byte0 & 0b0110_0000) = 0FF0-0000
-/// 2. shift left by 3: (0FF0-0000 << 3) = 0000-00FF--0000-0000
-/// 3. OR with second:  (0000-00FF--0000-0000 | 0000-0000--FFFF-FFFF) = 0000-00FF--FFFF-FFFF
+/// 1. mask first byte: `(byte0 & 0b0110_0000)` = 0FF0-0000
+/// 2. shift left by 3: `(0FF0-0000 << 3)` = 0000-00FF--0000-0000
+/// 3. OR with second:  `(0000-00FF--0000-0000 | 0000-0000--FFFF-FFFF)` = 0000-00FF--FFFF-FFFF
 /// Another way to do this would be to first shift right by 5 and so on
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Command {
@@ -144,7 +144,7 @@ impl Command {
         }
     }
 
-    pub fn num_of_literal(&self) -> Option<usize> {
+    pub fn num_of_literal(self) -> Option<usize> {
         match self {
             Command::Short {
                 literal,
@@ -158,26 +158,26 @@ impl Command {
                 literal,
                 ..
             } => {
-                if *literal == 0 {
+                if literal == 0 {
                     None
                 } else {
-                    Some(*literal as usize)
+                    Some(literal as usize)
                 }
             }
             Command::Literal(number) => {
-                Some(*number as usize)
+                Some(number as usize)
             }
             Command::Stop(number) => {
-                if *number == 0 {
+                if number == 0 {
                     None
                 } else {
-                    Some(*number as usize)
+                    Some(number as usize)
                 }
             }
         }
     }
 
-    pub fn offset_copy(&self) -> Option<(usize, usize)> {
+    pub fn offset_copy(self) -> Option<(usize, usize)> {
         match self {
             Command::Short {
                 offset,
@@ -188,12 +188,12 @@ impl Command {
                 offset,
                 length,
                 ..
-            } => Some((*offset as usize, *length as usize)),
+            } => Some((offset as usize, length as usize)),
             Command::Long {
                 offset,
                 length,
                 ..
-            } => Some((*offset as usize, *length as usize)),
+            } => Some((offset as usize, length as usize)),
             _ => None,
         }
     }
@@ -356,12 +356,12 @@ pub struct Control {
     pub bytes: Option<Vec<u8>>,
 }
 
-pub struct ControlIterator<'a, R: Read + Seek> {
+pub struct Iter<'a, R: Read + Seek> {
     reader: &'a mut R,
     reached_stop: bool,
 }
 
-impl<'a, R: Read + Seek> ControlIterator<'a, R> {
+impl<'a, R: Read + Seek> Iter<'a, R> {
     pub fn new(reader: &'a mut R) -> Self {
         Self {
             reader,
@@ -370,18 +370,18 @@ impl<'a, R: Read + Seek> ControlIterator<'a, R> {
     }
 }
 
-impl<'a, R: Read + Seek> Iterator for ControlIterator<'a, R> {
+impl<'a, R: Read + Seek> Iterator for Iter<'a, R> {
     type Item = Control;
 
     fn next(&mut self) -> Option<Self::Item> {
         if !self.reached_stop {
             Control::read_options(self.reader, &ReadOptions::default(), ())
                 .ok()
-                .and_then(|control| {
-                    if matches!(control.command, Command::Stop(_)) {
+                .map(|control| {
+                    if let Command::Stop(_) = control.command {
                         self.reached_stop = true;
                     }
-                    Some(control)
+                    control
                 })
         } else {
             None
