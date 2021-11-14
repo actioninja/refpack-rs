@@ -115,3 +115,8 @@ pub fn easy_decompress(input: &[u8]) -> Result<Vec<u8>, Error> {
     decompress(&mut reader, &mut writer)?;
     Ok(writer.into_inner())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+}
