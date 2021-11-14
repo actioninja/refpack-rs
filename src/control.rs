@@ -199,6 +199,13 @@ impl Command {
             _ => None,
         }
     }
+
+    pub fn is_stop(self) -> bool {
+        match self {
+            Command::Stop(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl BinRead for Command {
@@ -368,6 +375,7 @@ prop_compose! {
     }
 }
 
+/// Full control block of command + literal bytes
 #[binrw]
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
@@ -378,6 +386,7 @@ pub struct Control {
     pub bytes: Vec<u8>,
 }
 
+/// Iterator to to read a byte reader into a sequence of controls that can be iterated through
 pub struct Iter<'a, R: Read + Seek> {
     reader: &'a mut R,
     reached_stop: bool,
@@ -402,7 +411,7 @@ impl<'a, R: Read + Seek> Iterator for Iter<'a, R> {
             Control::read_options(self.reader, &ReadOptions::default(), ())
                 .ok()
                 .map(|control| {
-                    if let Command::Stop(_) = control.command {
+                    if control.command.is_stop() {
                         self.reached_stop = true;
                     }
                     control
@@ -486,6 +495,37 @@ mod tests {
             .unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
         let out: Control = Control::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
+
+        prop_assert_eq!(out, expected);
+    }
+
+    #[proptest]
+    fn control_iterator(input: Vec<Control>) {
+        //todo: make this not a stupid hack
+        let mut input: Vec<Control> = input
+            .iter()
+            .filter(|c| !c.command.is_stop())
+            .cloned()
+            .collect();
+        input.push(Control {
+            command: Command::new_stop(0),
+            bytes: vec![],
+        });
+        let expected = input.to_vec();
+        let mut buf = input
+            .iter()
+            .map(|control: &Control| -> Vec<u8> {
+                let mut buf = Cursor::new(vec![]);
+                control.write_options(&mut buf, &WriteOptions::default(), ());
+                buf.into_inner()
+            })
+            .fold(vec![], |mut acc, mut buf| {
+                acc.append(&mut buf);
+                acc
+            });
+
+        let mut cursor = Cursor::new(buf);
+        let out: Vec<Control> = Iter::new(&mut cursor).collect();
 
         prop_assert_eq!(out, expected);
     }
