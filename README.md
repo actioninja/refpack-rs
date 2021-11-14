@@ -1,4 +1,9 @@
 # refpack-rs
+[![Rust Build and Test](https://github.com/actioninja/refpack-rs/actions/workflows/main.yml/badge.svg)](https://github.com/actioninja/refpack-rs/actions/workflows/main.yml)
+![docs.rs](https://img.shields.io/docsrs/refpack)
+![Crates.io](https://img.shields.io/crates/v/refpack)
+[![GitHub license](https://img.shields.io/github/license/actioninja/refpack-rs)](https://github.com/actioninja/refpack-rs/blob/master/LICENSE.md)
+![fuck it](https://img.shields.io/badge/fuck%20it-ship%20it-success)
 
 
 # COMPRESSION IS NOT CURRENTLY IMPLEMENTED!
