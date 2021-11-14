@@ -118,5 +118,5 @@ pub fn easy_decompress(input: &[u8]) -> Result<Vec<u8>, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
 }

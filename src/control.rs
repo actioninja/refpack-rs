@@ -84,7 +84,7 @@ pub enum Command {
     /// - Position Magic: +1
     /// - Layout: 110P-LLBB|PPPP-PPPP|PPPP-PPPP|LLLL-LLLL
     Long {
-        #[cfg_attr(test, strategy(1..=131072_u32))]
+        #[cfg_attr(test, strategy(1..=131_072_u32))]
         offset: u32,
         #[cfg_attr(test, strategy(5..=1028_u16))]
         length: u16,
@@ -511,8 +511,8 @@ mod tests {
             command: Command::new_stop(0),
             bytes: vec![],
         });
-        let expected = input.to_vec();
-        let mut buf = input
+        let expected = input.clone();
+        let buf = input
             .iter()
             .map(|control: &Control| -> Vec<u8> {
                 let mut buf = Cursor::new(vec![]);
