@@ -21,6 +21,8 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      - name: Cache Rust toolchain
+        uses: Swatinem/rust-cache@v1
       - name: Install cargo-tarpaulin
         run: "cargo install cargo-tarpaulin -f"
       - name: Run cargo-tarapaulin
