@@ -43,9 +43,8 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-
-  coverage:
-    name: Coverage
+  fmt:
+    name: Rustfmt
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -56,32 +55,10 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: Install cargo-tarpaulin
-        run: "cargo install cargo-tarpaulin -f"
-      - name: Run cargo-tarapaulin
-        run: "cargo tarpaulin --ignore-tests --workspace --out Lcov --output-dir coverage"
-      - name: Upload coverage to Coveralls
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Archive coverage results
-        uses: actions/upload-artifact@v1
-        with:
-          name: code-coverage-report
-          path: cobertura.Lcov
-
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+      - name: Run rustfmt
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
@@ -90,14 +67,18 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - run: rustup component add clippy
-      - uses: actions-rs/cargo@v1
+      - name: Install clippy
+        run: rustup component add clippy
+      - name: Run clippy
+        uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: -- -D warnings

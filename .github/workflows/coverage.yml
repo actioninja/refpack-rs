@@ -1,0 +1,28 @@
+name: Run Coverage
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 * * *"
+
+jobs:
+  coverage:
+    name: Run Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Install cargo-tarpaulin
+        run: "cargo install cargo-tarpaulin -f"
+      - name: Run cargo-tarapaulin
+        run: "cargo tarpaulin --ignore-tests --workspace --out Lcov --output-dir coverage"
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
