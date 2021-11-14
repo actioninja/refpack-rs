@@ -6,7 +6,7 @@
 A rust crate for compressing and decompressing data in the RefPack format utilized by
 many EA games of the early 2000s
 
-More details on the refpack format can be found at [the niotso wiki](http://wiki.niotso.org/RefPack)
+More details on the refpack format can be found at [the niotso wiki](http://wiki.niotso.org/RefPack). The short explanation is that RefPack is a compression scheme loosely based on LZ77 compression.
 
 The [Original Refpack Implementation](http://download.wcnews.com/files/documents/sourcecode/shadowforce/transfer/asommers/mfcapp_src/engine/compress/RefPack.cpp)
 was referenced to ensure proper compatibility
