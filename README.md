@@ -1,5 +1,5 @@
 # refpack-rs
-[![Rust Build and Test](https://github.com/actioninja/refpack-rs/actions/workflows/main.yml/badge.svg)](https://github.com/actioninja/refpack-rs/actions/workflows/main.yml)
+[![Rust Build and Test](https://github.com/actioninja/refpack-rs/actions/workflows/check-and-test.yml/badge.svg)](https://github.com/actioninja/refpack-rs/actions/workflows/check-and-test.yml)
 ![docs.rs](https://img.shields.io/docsrs/refpack)
 ![Crates.io](https://img.shields.io/crates/v/refpack)
 [![GitHub license](https://img.shields.io/github/license/actioninja/refpack-rs)](https://github.com/actioninja/refpack-rs/blob/master/LICENSE.md)
