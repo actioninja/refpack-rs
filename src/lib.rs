@@ -14,9 +14,9 @@
 #![allow(clippy::too_many_lines)]
 
 mod control;
-pub mod error;
+mod error;
 
-use crate::error::Error;
+pub use crate::error::Error as RefPackError;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
@@ -35,7 +35,10 @@ fn copy_within_slice<T: Copy>(v: &mut [T], from: usize, to: usize, len: usize) {
 /// # Errors
 ///
 /// Will return `Error::Io` if there is an IO error
-pub fn compress<R: Read + Seek, W: Write>(_reader: &mut R, _writer: &mut W) -> Result<(), Error> {
+pub fn compress<R: Read + Seek, W: Write>(
+    _reader: &mut R,
+    _writer: &mut W,
+) -> Result<(), RefPackError> {
     todo!()
 }
 
@@ -46,7 +49,7 @@ pub fn compress<R: Read + Seek, W: Write>(_reader: &mut R, _writer: &mut W) -> R
 /// # Errors
 ///
 /// Will return `Error::Io` if there is an IO error
-pub fn easy_compress(input: &[u8]) -> Result<Vec<u8>, Error> {
+pub fn easy_compress(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     let mut reader = Cursor::new(input);
     let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
     compress(&mut reader, &mut writer)?;
@@ -57,13 +60,16 @@ pub fn easy_compress(input: &[u8]) -> Result<Vec<u8>, Error> {
 ///
 /// Will return `Error::InvalidMagic` if the header is malformed, indicating uncompressed data
 /// Will return `Error::Io` if there is an IO error
-pub fn decompress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> Result<(), Error> {
+pub fn decompress<R: Read + Seek, W: Write>(
+    reader: &mut R,
+    writer: &mut W,
+) -> Result<(), RefPackError> {
     let _compressed_length = reader.read_u32::<LittleEndian>()?;
 
     let magic = reader.read_u16::<BigEndian>()?;
 
     if magic != MAGIC {
-        return Err(Error::InvalidMagic(magic));
+        return Err(RefPackError::InvalidMagic(magic));
     }
 
     let decompressed_length = reader.read_u24::<LittleEndian>()?;
@@ -109,7 +115,7 @@ pub fn decompress<R: Read + Seek, W: Write>(reader: &mut R, writer: &mut W) -> R
 ///
 /// Will return `Error::InvalidMagic` if the header is malformed, indicating uncompressed data
 /// Will return `Error::Io` if there is an IO error
-pub fn easy_decompress(input: &[u8]) -> Result<Vec<u8>, Error> {
+pub fn easy_decompress(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     let mut reader = Cursor::new(input);
     let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
     decompress(&mut reader, &mut writer)?;
@@ -117,6 +123,4 @@ pub fn easy_decompress(input: &[u8]) -> Result<Vec<u8>, Error> {
 }
 
 #[cfg(test)]
-mod tests {
-    
-}
+mod tests {}
