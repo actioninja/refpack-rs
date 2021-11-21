@@ -16,6 +16,10 @@ use std::io::{Read, Seek, Write};
 #[cfg(test)]
 use test_strategy::Arbitrary;
 
+pub const MAX_COPY_LEN: usize = 1028;
+pub const MAX_OFFSET_DISTANCE: usize = 131071;
+pub const MAX_LITERAL_LEN: usize = 112;
+
 /// ## Key for description:
 /// - Length: Length of the command in bytes
 /// - Literal Range: Possible range of number of literal bytes to copy
@@ -386,6 +390,26 @@ pub struct Control {
     pub bytes: Vec<u8>,
 }
 
+impl Control {
+    pub fn new(command: Command, bytes: Vec<u8>) -> Self {
+        Self { command, bytes }
+    }
+
+    pub fn new_literal_block(bytes: &[u8]) -> Self {
+        Self {
+            command: Command::Literal(bytes.len() as u8),
+            bytes: bytes.to_vec(),
+        }
+    }
+
+    pub fn new_stop(bytes: &[u8]) -> Self {
+        Self {
+            command: Command::Stop(bytes.len() as u8),
+            bytes: bytes.to_vec(),
+        }
+    }
+}
+
 /// Iterator to to read a byte reader into a sequence of controls that can be iterated through
 pub struct Iter<'a, R: Read + Seek> {
     reader: &'a mut R,
@@ -530,7 +554,7 @@ mod tests {
     }
 
     #[proptest]
-    fn control_iterator(input: Vec<Control>) {
+    fn test_control_iterator(input: Vec<Control>) {
         //todo: make this not a stupid hack
         let mut input: Vec<Control> = input
             .iter()

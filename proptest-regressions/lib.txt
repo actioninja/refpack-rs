@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 2ed075726293db2a790b94765b9126c0e00799964a0772c67a7e48820223245b # shrinks to input = _SymmetricalCompressionArgs { input: [] }
