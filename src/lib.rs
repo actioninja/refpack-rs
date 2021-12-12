@@ -26,7 +26,7 @@ use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::mem::take;
 
 pub const MAGIC: u16 = 0x10FB;
-pub const MAX_WINDOW_SIZE: u16 = 131_072;
+pub const MAX_WINDOW_SIZE: u32 = 131_072;
 pub const HEADER_LEN: u16 = 9;
 pub const MAX_LITERAL_BLOCK: u16 = 112;
 
@@ -110,6 +110,9 @@ pub fn compress<R: Read + Seek, W: Write>(
     reader: &mut R,
     writer: &mut W,
 ) -> Result<(), RefPackError> {
+    if length == 0 {
+        return Err(RefPackError::EmptyInput);
+    }
     let mut in_buffer = vec![0_u8; length];
     reader.read_exact(&mut in_buffer)?;
 
@@ -171,6 +174,8 @@ pub fn compress<R: Read + Seek, W: Write>(
             }
         }
     }
+    //Add remaining literals
+    literal_block.extend_from_slice(&in_buffer[i..]);
     //Extremely similar to block up above, but with a different control type
     if literal_block.len() > 3 {
         let split_point: usize = literal_block.len() - (literal_block.len() % 4);
@@ -184,9 +189,9 @@ pub fn compress<R: Read + Seek, W: Write>(
     controls.write_options(&mut out_buf, &WriteOptions::default(), ())?;
     let out_buf = out_buf.into_inner();
 
-    writer.write_u32::<LittleEndian>(in_buffer.len() as u32)?;
+    writer.write_u32::<LittleEndian>((HEADER_LEN as u32) + (out_buf.len() as u32))?;
     writer.write_u16::<BigEndian>(MAGIC)?;
-    writer.write_u24::<BigEndian>((out_buf.len() as u32) + (HEADER_LEN as u32))?;
+    writer.write_u24::<BigEndian>(length as u32)?;
     writer.write_all(&out_buf)?;
     writer.flush()?;
     Ok(())
@@ -222,7 +227,7 @@ pub fn decompress<R: Read + Seek, W: Write>(
         return Err(RefPackError::InvalidMagic(magic));
     }
 
-    let decompressed_length = reader.read_u24::<LittleEndian>()?;
+    let decompressed_length = reader.read_u24::<BigEndian>()?;
 
     let mut decompression_buffer: Cursor<Vec<u8>> =
         Cursor::new(vec![0; decompressed_length as usize]);
@@ -279,10 +284,10 @@ mod tests {
     use test_strategy::proptest;
 
     #[proptest]
-    fn symmetrical_compression(input: Vec<u8>) {
+    fn symmetrical_compression(#[filter(#input.len() > 0)] input: Vec<u8>) {
         let compressed = easy_compress(&input).unwrap();
         let decompressed = easy_decompress(&compressed).unwrap();
 
-        prop_assert_eq!(decompressed, input);
+        prop_assert_eq!(input, decompressed);
     }
 }

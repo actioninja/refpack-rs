@@ -8,6 +8,7 @@
 use binrw::Error as BinRWError;
 
 pub enum Error {
+    EmptyInput,
     InvalidMagic(u16),
     Io(std::io::Error),
     BinRW(BinRWError),
@@ -29,7 +30,8 @@ impl From<BinRWError> for Error {
             | BinRWError::Custom { .. }
             | BinRWError::EnumErrors { .. }
             | BinRWError::NoVariantMatch { .. }
-            | Error::BadMagic { .. } => Error::BinRW(err),
+            | BinRWError::BadMagic { .. } => Error::BinRW(err),
+            _ => unreachable!(),
         }
     }
 }
@@ -37,8 +39,10 @@ impl From<BinRWError> for Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            Self::EmptyInput => write!(f, "Empty input provided to compression"),
             Self::InvalidMagic(magic) => write!(f, "Invalid magic: 0x{:04X}", magic),
             Self::Io(err) => std::fmt::Display::fmt(err, f),
+            Self::BinRW(err) => std::fmt::Display::fmt(err, f),
         }
     }
 }
