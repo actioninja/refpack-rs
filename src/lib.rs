@@ -16,7 +16,7 @@
 mod control;
 mod error;
 
-use crate::control::{Command, Control};
+use crate::control::{Command, Control, MAX_LITERAL_LEN, MAX_OFFSET_DISTANCE};
 pub use crate::error::Error as RefPackError;
 use binrw::{BinWrite, WriteOptions};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -25,9 +25,9 @@ use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 pub const MAGIC: u16 = 0x10FB;
-pub const MAX_WINDOW_SIZE: u32 = 131_072;
+pub const MAX_WINDOW_SIZE: u32 = MAX_OFFSET_DISTANCE as u32;
 pub const HEADER_LEN: u16 = 9;
-pub const MAX_LITERAL_BLOCK: u16 = 112;
+pub const MAX_LITERAL_BLOCK: u16 = MAX_LITERAL_LEN as u16;
 
 fn copy_within_slice<T: Copy>(v: &mut [T], from: usize, to: usize, len: usize) {
     if from > to {

@@ -127,7 +127,7 @@ impl Command {
             panic!("Literal length must be less than 3 (got {})", literal);
         }
 
-        if offset > 131_072 || length > 1028 {
+        if offset > MAX_LITERAL_LEN || length > MAX_COPY_LEN {
             panic!("Invalid offset or length (Maximum offset 131072, got {}) (Maximum length 1028, got {})", offset, length);
         } else if offset > 16383 || length > 67 {
             Self::Long {
