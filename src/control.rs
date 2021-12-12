@@ -17,7 +17,7 @@ use std::io::{Read, Seek, Write};
 use test_strategy::Arbitrary;
 
 pub const MAX_COPY_LEN: usize = 1028;
-pub const MAX_OFFSET_DISTANCE: usize = 131071;
+pub const MAX_OFFSET_DISTANCE: usize = 131_071;
 pub const MAX_LITERAL_LEN: usize = 112;
 
 /// ## Key for description:

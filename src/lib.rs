@@ -23,7 +23,7 @@ use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::cmp::max;
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
-use std::mem::take;
+
 
 pub const MAGIC: u16 = 0x10FB;
 pub const MAX_WINDOW_SIZE: u32 = 131_072;
@@ -189,7 +189,7 @@ pub fn compress<R: Read + Seek, W: Write>(
     controls.write_options(&mut out_buf, &WriteOptions::default(), ())?;
     let out_buf = out_buf.into_inner();
 
-    writer.write_u32::<LittleEndian>((HEADER_LEN as u32) + (out_buf.len() as u32))?;
+    writer.write_u32::<LittleEndian>(u32::from(HEADER_LEN) + (out_buf.len() as u32))?;
     writer.write_u16::<BigEndian>(MAGIC)?;
     writer.write_u24::<BigEndian>(length as u32)?;
     writer.write_all(&out_buf)?;
