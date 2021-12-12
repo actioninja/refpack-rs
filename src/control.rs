@@ -567,7 +567,9 @@ mod tests {
             .iter()
             .map(|control: &Control| -> Vec<u8> {
                 let mut buf = Cursor::new(vec![]);
-                control.write_options(&mut buf, &WriteOptions::default(), ());
+                control
+                    .write_options(&mut buf, &WriteOptions::default(), ())
+                    .unwrap();
                 buf.into_inner()
             })
             .fold(vec![], |mut acc, mut buf| {
