@@ -129,7 +129,7 @@ pub fn compress<R: Read + Seek, W: Write>(
 
         if let Some(found) = matched.map(|x| x as usize) {
             let distance = i - found;
-            if distance < MAX_LITERAL_BLOCK as usize {
+            if distance < MAX_OFFSET_DISTANCE as usize {
                 // find the longest common prefix
                 let match_length = 3 + &in_buffer[i..]
                     .iter()
