@@ -24,7 +24,6 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
-
 pub const MAGIC: u16 = 0x10FB;
 pub const MAX_WINDOW_SIZE: u32 = 131_072;
 pub const HEADER_LEN: u16 = 9;
@@ -132,7 +131,7 @@ pub fn compress<R: Read + Seek, W: Write>(
             let distance = i - found;
             if distance < MAX_LITERAL_BLOCK as usize {
                 // find the longest common prefix
-                let length = 3 + &in_buffer[i..]
+                let match_length = 3 + &in_buffer[i..]
                     .iter()
                     .take(control::MAX_COPY_LEN - 3)
                     .zip(&in_buffer[found..])
@@ -144,25 +143,25 @@ pub fn compress<R: Read + Seek, W: Write>(
                     controls.push(Control::new_literal_block(&literal_block[..split_point]));
                     let second_block = &literal_block[split_point..];
                     controls.push(Control::new(
-                        Command::new(distance, length, second_block.len()),
+                        Command::new(distance, match_length, second_block.len()),
                         second_block.to_vec(),
                     ));
                 } else {
                     controls.push(Control::new(
-                        Command::new(distance, length, literal_block.len()),
+                        Command::new(distance, match_length, literal_block.len()),
                         literal_block.clone(),
                     ));
                 }
                 literal_block.clear();
 
-                for k in (i..).take(length).skip(1) {
+                for k in (i..).take(match_length).skip(1) {
                     if k >= end {
                         break;
                     }
                     prefix_table.insert(prefix(&in_buffer[k..]), k as u32);
                 }
 
-                i += length;
+                i += match_length;
             }
             //todo!("when a match is found, it needs to split the block! literals only in inc of 4, 0-3 on non-literal")
         } else {

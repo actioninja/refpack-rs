@@ -205,10 +205,7 @@ impl Command {
     }
 
     pub fn is_stop(self) -> bool {
-        match self {
-            Command::Stop(_) => true,
-            _ => false,
-        }
+        matches!(self, Command::Stop(_))
     }
 }
 
@@ -397,14 +394,14 @@ impl Control {
 
     pub fn new_literal_block(bytes: &[u8]) -> Self {
         Self {
-            command: Command::Literal(bytes.len() as u8),
+            command: Command::new_literal(bytes.len()),
             bytes: bytes.to_vec(),
         }
     }
 
     pub fn new_stop(bytes: &[u8]) -> Self {
         Self {
-            command: Command::Stop(bytes.len() as u8),
+            command: Command::new_stop(bytes.len()),
             bytes: bytes.to_vec(),
         }
     }
