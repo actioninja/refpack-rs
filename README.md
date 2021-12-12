@@ -7,8 +7,6 @@
 [![Coverage Status](https://coveralls.io/repos/github/actioninja/refpack-rs/badge.svg?branch=master)](https://coveralls.io/github/actioninja/refpack-rs?branch=master)
 
 
-# COMPRESSION IS NOT CURRENTLY IMPLEMENTED!
-
 A rust crate for compressing and decompressing data in the RefPack format utilized by
 many EA games of the early 2000s
 
