@@ -5,3 +5,5 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 2ed075726293db2a790b94765b9126c0e00799964a0772c67a7e48820223245b # shrinks to input = _SymmetricalCompressionArgs { input: [] }
+cc 7905561e7f7d8583c76e17d70b9cfdb2380f20742ada1106b19e7b662d0cf4ef # shrinks to input = _SymmetricalCompressionArgs { input: [1] }
+cc 4789947ea7fbd72e4abfd5964516ad90e2a2d819eb8f4654ef3b34701aff6727 # shrinks to input = _SymmetricalCompressionArgs { input: [16, 84, 135, 16, 84, 135, 0] }

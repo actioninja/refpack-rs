@@ -131,7 +131,7 @@ pub fn compress<R: Read + Seek, W: Write>(
             let distance = i - found;
             if distance < MAX_OFFSET_DISTANCE as usize {
                 // find the longest common prefix
-                let match_length = 3 + &in_buffer[i..]
+                let match_length = in_buffer[i..]
                     .iter()
                     .take(control::MAX_COPY_LEN - 3)
                     .zip(&in_buffer[found..])
@@ -173,8 +173,10 @@ pub fn compress<R: Read + Seek, W: Write>(
             }
         }
     }
-    //Add remaining literals
-    literal_block.extend_from_slice(&in_buffer[i..]);
+    //Add remaining literals if there are any
+    if i < in_buffer.len() {
+        literal_block.extend_from_slice(&in_buffer[i..]);
+    }
     //Extremely similar to block up above, but with a different control type
     if literal_block.len() > 3 {
         let split_point: usize = literal_block.len() - (literal_block.len() % 4);
@@ -262,8 +264,12 @@ pub fn decompress<R: Read + Seek, W: Write>(
 }
 
 /// Wrapped decompress function with a bit easier and cleaner of an API.
-/// Takes a slice of bytes and returns a Vec of bytes
+/// Takes a slice of bytes and returns a Vec of byes
 /// In implementation this just creates `Cursor`s for the reader and writer and calls `decompress`
+///
+/// # Returns
+///
+/// A Result containing either `Vec<u8>` of the decompressed data or a `RefPackError`.
 ///
 /// # Errors
 ///
@@ -282,11 +288,23 @@ mod tests {
     use proptest::prelude::*;
     use test_strategy::proptest;
 
-    #[proptest]
+    #[proptest(ProptestConfig { cases: 100_000, ..Default::default() })]
     fn symmetrical_compression(#[filter(#input.len() > 0)] input: Vec<u8>) {
         let compressed = easy_compress(&input).unwrap();
         let decompressed = easy_decompress(&compressed).unwrap();
 
         prop_assert_eq!(input, decompressed);
+    }
+
+    #[test]
+    fn failing_case() {
+        let input = vec![16, 84, 135, 16, 84, 135, 0];
+        dbg!(&input);
+        let compressed = easy_compress(&input).unwrap();
+        dbg!(&compressed);
+        let decompressed = easy_decompress(&compressed).unwrap();
+        dbg!(&decompressed);
+
+        assert_eq!(input, decompressed);
     }
 }
