@@ -522,13 +522,13 @@ mod tests {
     #[test]
     #[should_panic]
     fn command_reject_new_invalid_high_offset() {
-        let _invalid = Command::new(500000, 0, 0);
+        let _invalid = Command::new(500_000, 0, 0);
     }
 
     #[test]
     #[should_panic]
     fn command_reject_new_invalid_high_length() {
-        let _invalid = Command::new(0, 500000, 0);
+        let _invalid = Command::new(0, 500_000, 0);
     }
 
     #[test]
