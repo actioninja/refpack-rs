@@ -44,6 +44,8 @@
 #![warn(clippy::pedantic, clippy::cargo)]
 // Due to the high amount of byte conversions, sometimes intentional lossy conversions are necessary.
 #![allow(clippy::cast_possible_truncation)]
+// Annoying and wrong, RefPack is a compression scheme.
+#![allow(clippy::doc_markdown)]
 // Default::default() is more idiomatic imo
 #![allow(clippy::default_trait_access)]
 // too many lines is a dumb metric
