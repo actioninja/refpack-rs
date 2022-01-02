@@ -27,8 +27,12 @@
 //! ### Example
 //!
 //! ```rust
+//! use std::io::Cursor;
+//! use std::io::Seek;
+//!
+//! let mut source_reader = Cursor::new(b"Hello World!".to_vec());
 //! let mut out_buf = Cursor::new(vec![]);
-//! refpack::decompress(&mut source_reader, &mut out_buf)?;
+//! refpack::compress(source_reader.get_ref().len(), &mut source_reader, &mut out_buf).unwrap();
 //! ```
 //!
 //! The easy variants are `compress_easy` and `decompress_easy`, which take a `&[u8]` and return
