@@ -5,6 +5,38 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+//! A rust crate for compressing and decompressing data in the RefPack format utilized by
+//! many EA games of the early 2000s
+//!
+//! More details on the refpack format can be found at [the niotso wiki](http://wiki.niotso.org/RefPack). The short explanation is that RefPack is a compression scheme loosely based on LZ77 compression.
+//!
+//! The [Original Refpack Implementation](http://download.wcnews.com/files/documents/sourcecode/shadowforce/transfer/asommers/mfcapp_src/engine/compress/RefPack.cpp)
+//! was referenced to ensure proper compatibility
+//!
+//! # Usage
+//!
+//! `refpack-rs` exposes two functions: `compress` and `decompress`, along with `easy` variants
+//! with easier but less flexible of usage.
+//!
+//! `compress` and `decompress` take mutable references to a buffer to read and write from,
+//! that implements `std::io::Read` and `std::io::Write`, respectively.
+//!
+//! `decompress` will read from the buffer until it encounters a stopcode (byte within (0xFC..=0xFF)),
+//! while `compress` will read in the provided length.
+//!
+//! ### Example
+//!
+//! ```rust
+//! let mut out_buf = Cursor::new(vec![]);
+//! refpack::decompress(&mut source_reader, &mut out_buf)?;
+//! ```
+//!
+//! The easy variants are `compress_easy` and `decompress_easy`, which take a `&[u8]` and return
+//! a `Result<Vec<u8>, RefPackError>`.
+//!
+//! Internally they simply call `compress` and `decompress` with a `Cursor` to the input and
+//! output buffers, however they are more convenient to use in many cases.
+
 #![warn(clippy::pedantic, clippy::cargo)]
 // Due to the high amount of byte conversions, sometimes intentional lossy conversions are necessary.
 #![allow(clippy::cast_possible_truncation)]
@@ -29,6 +61,7 @@ pub const MAX_WINDOW_SIZE: u32 = MAX_OFFSET_DISTANCE as u32;
 pub const HEADER_LEN: u16 = 9;
 pub const MAX_LITERAL_BLOCK: u16 = MAX_LITERAL_LEN as u16;
 
+/// Simple utility function that does a fast memory region copy within a slice
 fn copy_within_slice<T: Copy>(v: &mut [T], from: usize, to: usize, len: usize) {
     if from > to {
         let (dst, src) = v.split_at_mut(from);
@@ -100,9 +133,30 @@ fn prefix(input_buf: &[u8]) -> [u8; 3] {
     [buf[0], buf[1], buf[2]]
 }
 
+/// Compress a data stream from a Reader to refpack format into a Writer.
+///
+/// First parameter is the length; allows for compressing an arbitrary block length from any reader.
+///
+/// Second and third parameter are the source reader and destination writ.er
+///
+/// # Example
+///
+/// ```Rust
+/// use std::io::Cursor;
+///
+/// let mut input = Cursor::new(b"Hello World!");
+/// let mut output = Cursor::new(Vec::new());
+///
+/// // Compress the input into the output
+/// refpack::compress(input.len(), &mut input, &mut output);
+/// // output now contains the compressed version of the input
+///
+/// ```
+///
 /// # Errors
 ///
 /// Will return `Error::Io` if there is an IO error
+/// Will return `Error::EmptyInput` if the length provided is 0
 // Adapted from libflate_lz77
 pub fn compress<R: Read + Seek, W: Write>(
     length: usize,
@@ -138,6 +192,7 @@ pub fn compress<R: Read + Seek, W: Write>(
                     .take_while(|(a, b)| a == b)
                     .count();
 
+                // If the current literal block is longer than 3 we need to split the block
                 if literal_block.len() > 3 {
                     let split_point: usize = literal_block.len() - (literal_block.len() % 4);
                     controls.push(Control::new_literal_block(&literal_block[..split_point]));
@@ -147,6 +202,7 @@ pub fn compress<R: Read + Seek, W: Write>(
                         second_block.to_vec(),
                     ));
                 } else {
+                    // If it's not, just push a new block directly
                     controls.push(Control::new(
                         Command::new(distance, match_length, literal_block.len()),
                         literal_block.clone(),
@@ -212,6 +268,23 @@ pub fn easy_compress(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     Ok(writer.into_inner())
 }
 
+/// Decompress refpack data.
+///
+/// Accepts arbitrary `Read`s and `Write`s.
+///
+/// # Example
+///
+/// ```Rust
+/// use std::io::Cursor;
+///
+/// let mut input = Cursor::new(/* some refpack data */);
+/// let mut output = Cursor::new(Vec::new());
+///
+/// // decompress the input into the output
+/// refpack::compress(&mut input, &mut output);
+/// // output now contains the decompressed version of the input
+///
+/// ```
 /// # Errors
 ///
 /// Will return `Error::InvalidMagic` if the header is malformed, indicating uncompressed data
@@ -294,17 +367,5 @@ mod tests {
         let decompressed = easy_decompress(&compressed).unwrap();
 
         prop_assert_eq!(input, decompressed);
-    }
-
-    #[test]
-    fn failing_case() {
-        let input = vec![16, 84, 135, 16, 84, 135, 0];
-        dbg!(&input);
-        let compressed = easy_compress(&input).unwrap();
-        dbg!(&compressed);
-        let decompressed = easy_decompress(&compressed).unwrap();
-        dbg!(&decompressed);
-
-        assert_eq!(input, decompressed);
     }
 }
