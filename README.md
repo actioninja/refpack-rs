@@ -15,6 +15,9 @@ More details on the refpack format can be found at [the niotso wiki](http://wiki
 The [Original Refpack Implementation](http://download.wcnews.com/files/documents/sourcecode/shadowforce/transfer/asommers/mfcapp_src/engine/compress/RefPack.cpp)
 was referenced to ensure proper compatibility
 
+## NOT SC4 COMPATIBLE
+SimCity 4 uses a different bit layout for its compression. I may eventually add a feature flag for "sc4 mode" but there isn't really a programmatic way to identify it and I would prefer not to complicate the API.
+
 # Usage
 
 `refpack-rs` exposes two functions: `compress` and `decompress`, along with `easy` variants
