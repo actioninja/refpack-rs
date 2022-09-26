@@ -56,7 +56,6 @@ mod error;
 
 use crate::control::{Command, Control, MAX_LITERAL_LEN, MAX_OFFSET_DISTANCE};
 pub use crate::error::Error as RefPackError;
-use binrw::{BinWrite, WriteOptions};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::cmp::max;
 use std::collections::HashMap;
@@ -249,7 +248,11 @@ pub fn compress<R: Read + Seek, W: Write>(
     }
 
     let mut out_buf: Cursor<Vec<u8>> = Cursor::new(Vec::new());
-    controls.write_options(&mut out_buf, &WriteOptions::default(), ())?;
+
+    for control in controls {
+        control.write(&mut out_buf)?;
+    }
+
     let out_buf = out_buf.into_inner();
 
     writer.write_u32::<LittleEndian>(u32::from(HEADER_LEN) + (out_buf.len() as u32))?;
@@ -267,6 +270,7 @@ pub fn compress<R: Read + Seek, W: Write>(
 /// # Errors
 ///
 /// Will return `Error::Io` if there is an IO error
+#[inline]
 pub fn easy_compress(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     let mut reader = Cursor::new(input);
     let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
@@ -354,6 +358,7 @@ pub fn decompress<R: Read + Seek, W: Write>(
 ///
 /// Will return `Error::InvalidMagic` if the header is malformed, indicating uncompressed data
 /// Will return `Error::Io` if there is an IO error
+#[inline]
 pub fn easy_decompress(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     let mut reader = Cursor::new(input);
     let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
@@ -369,6 +374,23 @@ mod tests {
 
     #[proptest(ProptestConfig { cases: 100_000, ..Default::default() })]
     fn symmetrical_compression(#[filter(#input.len() > 0)] input: Vec<u8>) {
+        let compressed = easy_compress(&input).unwrap();
+        let decompressed = easy_decompress(&compressed).unwrap();
+
+        prop_assert_eq!(input, decompressed);
+    }
+
+    #[proptest]
+    fn large_input_compression(
+        #[strategy(proptest::collection::vec(any::<u8>(), (100_000..=500_000)))] input: Vec<u8>,
+    ) {
+        let _unused = easy_compress(&input).unwrap();
+    }
+
+    #[proptest]
+    fn symmetrical_compression_large_input(
+        #[strategy(proptest::collection::vec(any::<u8>(), (100_000..=500_000)))] input: Vec<u8>,
+    ) {
         let compressed = easy_compress(&input).unwrap();
         let decompressed = easy_decompress(&compressed).unwrap();
 

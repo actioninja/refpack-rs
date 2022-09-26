@@ -14,10 +14,16 @@ keywords = ["refpack", "dbpf", "far", "ea", "qfs"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitvec = "0.22.3"
-byteorder = "1.4.3"
-binrw = "0.8.0"
+bitvec = "1.0"
+byteorder = "1.4"
+thiserror = "1.0"
 
 [dev-dependencies]
-proptest = "1.0.0"
-test-strategy = "0.1.2"
+proptest = "1.0"
+test-strategy = "0.2"
+criterion = "0.4"
+rand = "0.8"
+
+[[bench]]
+name = "synthetic_performance"
+harness = false

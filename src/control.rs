@@ -5,9 +5,9 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-use binrw::{binrw, BinRead, BinResult, BinWrite, ReadOptions, WriteOptions};
+use crate::RefPackError;
 use bitvec::prelude::*;
-use byteorder::ReadBytesExt;
+use byteorder::{ReadBytesExt, WriteBytesExt};
 #[cfg(test)]
 use proptest::collection::{size_range, vec};
 #[cfg(test)]
@@ -123,9 +123,11 @@ pub enum Command {
 
 impl Command {
     pub fn new(offset: usize, length: usize, literal: usize) -> Self {
-        if literal > 3 {
-            panic!("Literal length must be less than 3 (got {})", literal);
-        }
+        assert!(
+            literal <= 3,
+            "Literal length must be less than or equal to 3 for commands (got {})",
+            literal
+        );
 
         if offset > MAX_OFFSET_DISTANCE || length > MAX_COPY_LEN {
             panic!("Invalid offset or length (Maximum offset 131072, got {}) (Maximum length 1028, got {})", offset, length);
@@ -207,16 +209,8 @@ impl Command {
     pub fn is_stop(self) -> bool {
         matches!(self, Command::Stop(_))
     }
-}
 
-impl BinRead for Command {
-    type Args = ();
-
-    fn read_options<R: Read + Seek>(
-        reader: &mut R,
-        _: &ReadOptions,
-        _: Self::Args,
-    ) -> BinResult<Self> {
+    pub fn read<R: Read + Seek>(reader: &mut R) -> Result<Self, RefPackError> {
         let first = reader.read_u8()?;
 
         match first {
@@ -270,24 +264,15 @@ impl BinRead for Command {
             0xFC..=0xFF => Ok(Self::Stop(first & 0b0000_0011)),
         }
     }
-}
 
-impl BinWrite for Command {
-    type Args = ();
-
-    fn write_options<W: Write + Seek>(
-        &self,
-        writer: &mut W,
-        options: &WriteOptions,
-        _: Self::Args,
-    ) -> BinResult<()> {
+    pub fn write<W: Write + Seek>(&self, writer: &mut W) -> Result<(), RefPackError> {
         match self {
             Command::Short {
                 offset,
                 length,
                 literal,
             } => {
-                let mut out = bitvec![Msb0, u8; 0; 16];
+                let mut out = bitvec![u8, Msb0; 0; 16];
 
                 let length_adjusted = *length - 3;
                 let offset_adjusted = *offset - 1;
@@ -309,7 +294,7 @@ impl BinWrite for Command {
                 length,
                 literal,
             } => {
-                let mut out = bitvec![Msb0, u8; 0; 24];
+                let mut out = bitvec![u8, Msb0; 0; 24];
 
                 let length_adjusted = *length - 4;
                 let offset_adjusted = *offset - 1;
@@ -318,7 +303,7 @@ impl BinWrite for Command {
                 let length_bitview = length_adjusted.view_bits::<Msb0>();
                 let literal_bitview = literal.view_bits::<Msb0>();
 
-                out[0..=1].copy_from_bitslice(&bitvec![Msb0, u8; 1, 0][..]);
+                out[0..=1].copy_from_bitslice(&bitvec![u8, Msb0; 1, 0][..]);
                 out[2..=7].copy_from_bitslice(&length_bitview[2..=7]);
                 out[8..=9].copy_from_bitslice(&literal_bitview[6..=7]);
                 out[10..=23].clone_from_bitslice(&offset_bitview[2..=15]);
@@ -331,7 +316,7 @@ impl BinWrite for Command {
                 length,
                 literal,
             } => {
-                let mut out = bitvec![Msb0, u8; 0; 32];
+                let mut out = bitvec![u8, Msb0; 0; 32];
 
                 let length_adjusted = *length - 5;
                 let offset_adjusted = *offset - 1;
@@ -340,7 +325,7 @@ impl BinWrite for Command {
                 let length_bitview = length_adjusted.view_bits::<Msb0>();
                 let literal_bitview = literal.view_bits::<Msb0>();
 
-                out[0..=2].copy_from_bitslice(&bitvec![Msb0, u8; 1, 1, 0][..]);
+                out[0..=2].copy_from_bitslice(&bitvec![u8, Msb0; 1, 1, 0][..]);
                 out[3..=3].clone_from_bitslice(&offset_bitview[15..=15]);
                 out[4..=5].clone_from_bitslice(&length_bitview[6..=7]);
                 out[6..=7].copy_from_bitslice(&literal_bitview[6..=7]);
@@ -353,12 +338,12 @@ impl BinWrite for Command {
             Command::Literal(number) => {
                 let adjusted = (*number - 4) >> 2;
                 let out = 0b1110_0000 | (adjusted & 0b0001_1111);
-                u8::write_options(&out, writer, options, ())?;
+                writer.write_u8(out)?;
                 Ok(())
             }
             Command::Stop(number) => {
                 let out = 0b1111_1100 | (*number & 0b0000_0011);
-                u8::write_options(&out, writer, options, ())?;
+                writer.write_u8(out)?;
                 Ok(())
             }
         }
@@ -377,12 +362,10 @@ prop_compose! {
 }
 
 /// Full control block of command + literal bytes
-#[binrw]
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct Control {
     pub command: Command,
-    #[br(count(command.num_of_literal().unwrap_or(0)))]
     #[cfg_attr(test, strategy(bytes_strategy(#command.num_of_literal().unwrap_or(0))))]
     pub bytes: Vec<u8>,
 }
@@ -404,6 +387,22 @@ impl Control {
             command: Command::new_stop(bytes.len()),
             bytes: bytes.to_vec(),
         }
+    }
+
+    pub fn read<R: Read + Seek>(reader: &mut R) -> Result<Self, RefPackError> {
+        let command = Command::read(reader)?;
+        let mut buf = vec![0u8; command.num_of_literal().unwrap_or(0)];
+        reader.read(&mut buf)?;
+        Ok(Control {
+            command,
+            bytes: buf,
+        })
+    }
+
+    pub fn write<R: Write + Seek>(&self, writer: &mut R) -> Result<(), RefPackError> {
+        self.command.write(writer)?;
+        writer.write(&self.bytes)?;
+        Ok(())
     }
 }
 
@@ -429,14 +428,12 @@ impl<'a, R: Read + Seek> Iterator for Iter<'a, R> {
         if self.reached_stop {
             None
         } else {
-            Control::read_options(self.reader, &ReadOptions::default(), ())
-                .ok()
-                .map(|control| {
-                    if control.command.is_stop() {
-                        self.reached_stop = true;
-                    }
-                    control
-                })
+            Control::read(self.reader).ok().map(|control| {
+                if control.command.is_stop() {
+                    self.reached_stop = true;
+                }
+                control
+            })
         }
     }
 }
@@ -457,11 +454,9 @@ mod tests {
     ) {
         let expected = Command::new(offset, length, literal);
         let mut buf = Cursor::new(vec![]);
-        expected
-            .write_options(&mut buf, &WriteOptions::default(), ())
-            .unwrap();
+        expected.write(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
+        let out: Command = Command::read(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -472,11 +467,9 @@ mod tests {
 
         let expected = Command::new_literal(real_length);
         let mut buf = Cursor::new(vec![]);
-        expected
-            .write_options(&mut buf, &WriteOptions::default(), ())
-            .unwrap();
+        expected.write(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
+        let out: Command = Command::read(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -485,11 +478,9 @@ mod tests {
     fn symmetrical_command_stop(#[strategy(0..=3_usize)] input: usize) {
         let expected = Command::new_stop(input);
         let mut buf = Cursor::new(vec![]);
-        expected
-            .write_options(&mut buf, &WriteOptions::default(), ())
-            .unwrap();
+        expected.write(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
+        let out: Command = Command::read(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -498,11 +489,9 @@ mod tests {
     fn symmetrical_any_command(input: Command) {
         let expected = input;
         let mut buf = Cursor::new(vec![]);
-        expected
-            .write_options(&mut buf, &WriteOptions::default(), ())
-            .unwrap();
+        expected.write(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
+        let out: Command = Command::read(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -541,11 +530,9 @@ mod tests {
     fn symmetrical_control(input: Control) {
         let expected = input;
         let mut buf = Cursor::new(vec![]);
-        expected
-            .write_options(&mut buf, &WriteOptions::default(), ())
-            .unwrap();
+        expected.write(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Control = Control::read_options(&mut buf, &ReadOptions::default(), ()).unwrap();
+        let out: Control = Control::read(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -567,9 +554,7 @@ mod tests {
             .iter()
             .map(|control: &Control| -> Vec<u8> {
                 let mut buf = Cursor::new(vec![]);
-                control
-                    .write_options(&mut buf, &WriteOptions::default(), ())
-                    .unwrap();
+                control.write(&mut buf).unwrap();
                 buf.into_inner()
             })
             .fold(vec![], |mut acc, mut buf| {
