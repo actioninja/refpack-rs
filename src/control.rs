@@ -18,7 +18,8 @@ use test_strategy::Arbitrary;
 
 pub const MAX_COPY_SHORT_OFFSET: u16 = 1_023;
 pub const MAX_COPY_SHORT_LEN: u8 = 10;
-//pub const MIN_COPY_SHORT_LEN: u8 = 3;
+#[allow(dead_code)] //Clippy is shitting the bed here, this is actually used
+pub const MIN_COPY_SHORT_LEN: u8 = 3;
 
 pub const MAX_COPY_MEDIUM_OFFSET: u16 = 16_383;
 pub const MAX_COPY_MEDIUM_LEN: u8 = 67;
