@@ -18,7 +18,7 @@ use test_strategy::Arbitrary;
 
 pub const MAX_COPY_SHORT_OFFSET: u16 = 1_023;
 pub const MAX_COPY_SHORT_LEN: u8 = 10;
-pub const MIN_COPY_SHORT_LEN: u8 = 3;
+//pub const MIN_COPY_SHORT_LEN: u8 = 3;
 
 pub const MAX_COPY_MEDIUM_OFFSET: u16 = 16_383;
 pub const MAX_COPY_MEDIUM_LEN: u8 = 67;
@@ -283,7 +283,7 @@ impl Command {
         }
     }
 
-    pub fn write<W: Write>(&self, writer: &mut W) -> Result<(), RefPackError> {
+    pub fn write<W: Write>(self, writer: &mut W) -> Result<(), RefPackError> {
         match self {
             Command::Short {
                 offset,
@@ -292,8 +292,8 @@ impl Command {
             } => {
                 let mut out = bitvec![u8, Msb0; 0; 16];
 
-                let length_adjusted = *length - 3;
-                let offset_adjusted = *offset - 1;
+                let length_adjusted = length - 3;
+                let offset_adjusted = offset - 1;
 
                 let offset_bitview = offset_adjusted.view_bits::<Msb0>();
                 let length_bitview = length_adjusted.view_bits::<Msb0>();
@@ -314,8 +314,8 @@ impl Command {
             } => {
                 let mut out = bitvec![u8, Msb0; 0; 24];
 
-                let length_adjusted = *length - 4;
-                let offset_adjusted = *offset - 1;
+                let length_adjusted = length - 4;
+                let offset_adjusted = offset - 1;
 
                 let offset_bitview = offset_adjusted.view_bits::<Msb0>();
                 let length_bitview = length_adjusted.view_bits::<Msb0>();
@@ -336,8 +336,8 @@ impl Command {
             } => {
                 let mut out = bitvec![u8, Msb0; 0; 32];
 
-                let length_adjusted = *length - 5;
-                let offset_adjusted = *offset - 1;
+                let length_adjusted = length - 5;
+                let offset_adjusted = offset - 1;
 
                 let offset_bitview = offset_adjusted.view_bits::<Msb0>();
                 let length_bitview = length_adjusted.view_bits::<Msb0>();
@@ -354,13 +354,13 @@ impl Command {
                 Ok(())
             }
             Command::Literal(number) => {
-                let adjusted = (*number - 4) >> 2;
+                let adjusted = (number - 4) >> 2;
                 let out = 0b1110_0000 | (adjusted & 0b0001_1111);
                 writer.write_u8(out)?;
                 Ok(())
             }
             Command::Stop(number) => {
-                let out = 0b1111_1100 | (*number & 0b0000_0011);
+                let out = 0b1111_1100 | (number & 0b0000_0011);
                 writer.write_u8(out)?;
                 Ok(())
             }
@@ -380,7 +380,7 @@ prop_compose! {
 }
 
 /// Full control block of command + literal bytes
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct Control {
     pub command: Command,
@@ -410,7 +410,7 @@ impl Control {
     pub fn read<R: Read + Seek>(reader: &mut R) -> Result<Self, RefPackError> {
         let command = Command::read(reader)?;
         let mut buf = vec![0u8; command.num_of_literal().unwrap_or(0)];
-        reader.read(&mut buf)?;
+        reader.read_exact(&mut buf)?;
         Ok(Control {
             command,
             bytes: buf,
@@ -419,7 +419,7 @@ impl Control {
 
     pub fn write<R: Write + Seek>(&self, writer: &mut R) -> Result<(), RefPackError> {
         self.command.write(writer)?;
-        writer.write(&self.bytes)?;
+        writer.write_all(&self.bytes)?;
         Ok(())
     }
 }
