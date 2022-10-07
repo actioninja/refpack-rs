@@ -141,6 +141,105 @@ fn prefix(input_buf: &[u8]) -> [u8; 3] {
     [buf[0], buf[1], buf[2]]
 }
 
+fn encode_stream<R: Read + Seek>(
+    reader: &mut R,
+    length: usize,
+) -> Result<Vec<Control>, RefPackError> {
+    let mut in_buffer = vec![0_u8; length];
+    reader.read_exact(&mut in_buffer)?;
+    let mut controls: Vec<Control> = vec![];
+    let mut prefix_table = PrefixTable::new(in_buffer.len());
+
+    let mut i = 0;
+    let end = max(3, in_buffer.len()) - 3;
+    let mut literal_block: Vec<u8> = Vec::with_capacity(MAX_LITERAL_BLOCK as usize);
+    while i < end {
+        let key = prefix(&in_buffer[i..]);
+
+        // get the position of the prefix in the table (if it exists)
+        let matched = prefix_table.insert(key, i as u32);
+
+        let pair = if let Some(matched) = matched.map(|u| u as usize) {
+            let distance = i - matched;
+            if distance > MAX_OFFSET_DISTANCE || distance < MIN_COPY_OFFSET as usize {
+                None
+            } else {
+                // find the longest common prefix
+                let match_length = in_buffer[i..]
+                    .iter()
+                    .take(control::MAX_COPY_LEN - 3)
+                    .zip(&in_buffer[matched..])
+                    .take_while(|(a, b)| a == b)
+                    .count();
+
+                if (match_length <= MIN_COPY_MEDIUM_LEN as usize
+                    && distance > MAX_COPY_SHORT_OFFSET as usize)
+                    || (match_length <= MIN_COPY_LONG_LEN as usize
+                        && distance > MAX_COPY_MEDIUM_OFFSET as usize)
+                {
+                    None
+                } else {
+                    Some((matched, match_length))
+                }
+            }
+        } else {
+            None
+        };
+
+        if let Some((found, match_length)) = pair {
+            let distance = i - found;
+
+            // If the current literal block is longer than 3 we need to split the block
+            if literal_block.len() > 3 {
+                let split_point: usize = literal_block.len() - (literal_block.len() % 4);
+                controls.push(Control::new_literal_block(&literal_block[..split_point]));
+                let second_block = &literal_block[split_point..];
+                controls.push(Control::new(
+                    Command::new(distance, match_length, second_block.len()),
+                    second_block.to_vec(),
+                ));
+            } else {
+                // If it's not, just push a new block directly
+                controls.push(Control::new(
+                    Command::new(distance, match_length, literal_block.len()),
+                    literal_block.clone(),
+                ));
+            }
+            literal_block.clear();
+
+            for k in (i..).take(match_length).skip(1) {
+                if k >= end {
+                    break;
+                }
+                prefix_table.insert(prefix(&in_buffer[k..]), k as u32);
+            }
+
+            i += match_length;
+        } else {
+            literal_block.push(in_buffer[i]);
+            i += 1;
+            if literal_block.len() >= (MAX_LITERAL_BLOCK as usize) {
+                controls.push(Control::new_literal_block(&literal_block));
+                literal_block.clear();
+            }
+        }
+    }
+    //Add remaining literals if there are any
+    if i < in_buffer.len() {
+        literal_block.extend_from_slice(&in_buffer[i..]);
+    }
+    //Extremely similar to block up above, but with a different control type
+    if literal_block.len() > 3 {
+        let split_point: usize = literal_block.len() - (literal_block.len() % 4);
+        controls.push(Control::new_literal_block(&literal_block[..split_point]));
+        controls.push(Control::new_stop(&literal_block[split_point..]));
+    } else {
+        controls.push(Control::new_stop(&literal_block));
+    }
+
+    Ok(controls)
+}
+
 /// Compress a data stream from a Reader to refpack format into a Writer.
 ///
 /// First parameter is the length; allows for compressing an arbitrary block length from any reader.
@@ -174,100 +273,8 @@ pub fn compress<R: Read + Seek, W: Write>(
     if length == 0 {
         return Err(RefPackError::EmptyInput);
     }
-    let mut in_buffer = vec![0_u8; length];
-    reader.read_exact(&mut in_buffer)?;
 
-    let mut controls: Vec<Control> = vec![];
-    let mut prefix_table = PrefixTable::new(in_buffer.len());
-    let mut i = 0;
-    let end = max(3, in_buffer.len()) - 3;
-    let mut literal_block: Vec<u8> = Vec::with_capacity(MAX_LITERAL_BLOCK as usize);
-    'core_write: while i < end {
-        // get current running prefix
-        let key = prefix(&in_buffer[i..]);
-
-        // get the position of the prefix in the table (if it exists)
-        let matched = prefix_table.insert(key, i as u32);
-
-        if let Some(found) = matched.map(|x| x as usize) {
-            let distance = i - found;
-            if distance > MAX_OFFSET_DISTANCE || distance < MIN_COPY_OFFSET as usize {
-                i += 1;
-                continue 'core_write;
-            }
-
-            // find the longest common prefix
-            let match_length = in_buffer[i..]
-                .iter()
-                .take(control::MAX_COPY_LEN - 3)
-                .zip(&in_buffer[found..])
-                .take_while(|(a, b)| a == b)
-                .count();
-
-            // Block isn't similar enough for the distance
-            // This is janky, but this is actually how most other implementations work
-            // I believe the leaked implementation segfaults on these situations
-            if match_length <= MIN_COPY_MEDIUM_LEN as usize
-                && distance > MAX_COPY_SHORT_OFFSET as usize
-            {
-                i += 1;
-                continue 'core_write;
-            }
-            if match_length <= MIN_COPY_LONG_LEN as usize
-                && distance > MAX_COPY_MEDIUM_OFFSET as usize
-            {
-                i += 1;
-                continue 'core_write;
-            }
-
-            // If the current literal block is longer than 3 we need to split the block
-            if literal_block.len() > 3 {
-                let split_point: usize = literal_block.len() - (literal_block.len() % 4);
-                controls.push(Control::new_literal_block(&literal_block[..split_point]));
-                let second_block = &literal_block[split_point..];
-                controls.push(Control::new(
-                    Command::new(distance, match_length, second_block.len()),
-                    second_block.to_vec(),
-                ));
-            } else {
-                // If it's not, just push a new block directly
-                controls.push(Control::new(
-                    Command::new(distance, match_length, literal_block.len()),
-                    literal_block.clone(),
-                ));
-            }
-            literal_block.clear();
-
-            for k in (i..).take(match_length).skip(1) {
-                if k >= end {
-                    break;
-                }
-                prefix_table.insert(prefix(&in_buffer[k..]), k as u32);
-            }
-
-            i += match_length;
-            continue 'core_write;
-        }
-
-        literal_block.push(in_buffer[i]);
-        i += 1;
-        if literal_block.len() >= (MAX_LITERAL_BLOCK as usize) {
-            controls.push(Control::new_literal_block(&literal_block));
-            literal_block.clear();
-        }
-    }
-    //Add remaining literals if there are any
-    if i < in_buffer.len() {
-        literal_block.extend_from_slice(&in_buffer[i..]);
-    }
-    //Extremely similar to block up above, but with a different control type
-    if literal_block.len() > 3 {
-        let split_point: usize = literal_block.len() - (literal_block.len() % 4);
-        controls.push(Control::new_literal_block(&literal_block[..split_point]));
-        controls.push(Control::new_stop(&literal_block[split_point..]));
-    } else {
-        controls.push(Control::new_stop(&literal_block));
-    }
+    let controls = encode_stream(reader, length)?;
 
     let mut out_buf: Cursor<Vec<u8>> = Cursor::new(Vec::new());
 
@@ -420,85 +427,5 @@ mod tests {
         let decompressed = easy_decompress(&compressed).unwrap();
 
         prop_assert_eq!(input, decompressed);
-    }
-
-    #[test]
-    fn failing_case() {
-        let failing = vec![
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 228, 48, 92, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 228, 48, 92, 1, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0,
-        ];
-
-        let compressed = easy_compress(&failing).unwrap();
-
-        println!("{:?}", compressed)
     }
 }

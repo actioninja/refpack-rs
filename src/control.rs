@@ -283,7 +283,7 @@ impl Command {
         }
     }
 
-    pub fn write<W: Write + Seek>(&self, writer: &mut W) -> Result<(), RefPackError> {
+    pub fn write<W: Write>(&self, writer: &mut W) -> Result<(), RefPackError> {
         match self {
             Command::Short {
                 offset,
