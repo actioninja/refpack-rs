@@ -159,7 +159,7 @@ fn encode_stream<R: Read + Seek>(
         // get the position of the prefix in the table (if it exists)
         let matched = prefix_table.insert(key, i as u32);
 
-        let pair = if let Some(matched) = matched.map(|u| u as usize) {
+        let pair = matched.map(|x| x as usize).and_then(|matched| {
             let distance = i - matched;
             if distance > MAX_OFFSET_DISTANCE || distance < MIN_COPY_OFFSET as usize {
                 None
@@ -182,9 +182,7 @@ fn encode_stream<R: Read + Seek>(
                     Some((matched, match_length))
                 }
             }
-        } else {
-            None
-        };
+        });
 
         if let Some((found, match_length)) = pair {
             let distance = i - found;
