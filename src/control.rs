@@ -16,8 +16,24 @@ use std::io::{Read, Seek, Write};
 #[cfg(test)]
 use test_strategy::Arbitrary;
 
-pub const MAX_COPY_LEN: usize = 1028;
-pub const MAX_OFFSET_DISTANCE: usize = 131_071;
+pub const MAX_COPY_SHORT_OFFSET: u16 = 1_023;
+pub const MAX_COPY_SHORT_LEN: u8 = 10;
+pub const MIN_COPY_SHORT_LEN: u8 = 3;
+
+pub const MAX_COPY_MEDIUM_OFFSET: u16 = 16_383;
+pub const MAX_COPY_MEDIUM_LEN: u8 = 67;
+pub const MIN_COPY_MEDIUM_LEN: u8 = 4;
+
+pub const MAX_COPY_LONG_OFFSET: u32 = 131_072;
+pub const MAX_COPY_LONG_LEN: u16 = 1_028;
+pub const MIN_COPY_LONG_LEN: u16 = 5;
+
+pub const MIN_COPY_OFFSET: u32 = 1;
+pub const MAX_COPY_LIT_LEN: u8 = 3;
+
+pub const MAX_OFFSET_DISTANCE: usize = MAX_COPY_LONG_OFFSET as usize;
+pub const MAX_COPY_LEN: usize = MAX_COPY_LONG_LEN as usize;
+
 pub const MAX_LITERAL_LEN: usize = 112;
 
 /// ## Key for description:
@@ -56,11 +72,11 @@ pub enum Command {
     /// - Position Magic: +1
     /// - Layout: 0PPL-LLBB|PPPP-PPPP
     Short {
-        #[cfg_attr(test, strategy(1..=1023_u16))]
+        #[cfg_attr(test, strategy((MIN_COPY_OFFSET as u16)..=MAX_COPY_SHORT_OFFSET))]
         offset: u16,
-        #[cfg_attr(test, strategy(3..=10_u8))]
+        #[cfg_attr(test, strategy(MIN_COPY_SHORT_LEN..=MAX_COPY_SHORT_LEN))]
         length: u8,
-        #[cfg_attr(test, strategy(0..=3_u8))]
+        #[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))]
         literal: u8,
     },
     /// - Length: 3
@@ -72,11 +88,11 @@ pub enum Command {
     /// - Position Magic: +1
     /// - Layout: 10LL-LLLL|BBPP-PPPP|PPPP-PPPP
     Medium {
-        #[cfg_attr(test, strategy(1..=16383_u16))]
+        #[cfg_attr(test, strategy((MIN_COPY_OFFSET as u16)..=MAX_COPY_MEDIUM_OFFSET))]
         offset: u16,
-        #[cfg_attr(test, strategy(4..=67_u8))]
+        #[cfg_attr(test, strategy(MIN_COPY_MEDIUM_LEN..=MAX_COPY_MEDIUM_LEN))]
         length: u8,
-        #[cfg_attr(test, strategy(0..=3_u8))]
+        #[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))]
         literal: u8,
     },
     /// - Length: 4
@@ -88,11 +104,11 @@ pub enum Command {
     /// - Position Magic: +1
     /// - Layout: 110P-LLBB|PPPP-PPPP|PPPP-PPPP|LLLL-LLLL
     Long {
-        #[cfg_attr(test, strategy(1..=131_072_u32))]
+        #[cfg_attr(test, strategy(MIN_COPY_OFFSET..=MAX_COPY_LONG_OFFSET))]
         offset: u32,
-        #[cfg_attr(test, strategy(5..=1028_u16))]
+        #[cfg_attr(test, strategy(MIN_COPY_LONG_LEN..=MAX_COPY_LONG_LEN))]
         length: u16,
-        #[cfg_attr(test, strategy(0..=3_u8))]
+        #[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))]
         literal: u8,
     },
     /// - Length: 1
@@ -118,26 +134,34 @@ pub enum Command {
     /// - Position Range: 0
     /// - Position Magic: 0
     /// - Layout: 1111-11PP
-    Stop(#[cfg_attr(test, strategy(0..=3_u8))] u8),
+    Stop(#[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))] u8),
 }
 
 impl Command {
     pub fn new(offset: usize, length: usize, literal: usize) -> Self {
         assert!(
-            literal <= 3,
-            "Literal length must be less than or equal to 3 for commands (got {})",
-            literal
+            literal <= MAX_COPY_LIT_LEN as usize,
+            "Literal length must be less than or equal to 3 for commands (got {literal})"
         );
 
         if offset > MAX_OFFSET_DISTANCE || length > MAX_COPY_LEN {
-            panic!("Invalid offset or length (Maximum offset 131072, got {}) (Maximum length 1028, got {})", offset, length);
-        } else if offset > 16383 || length > 67 {
+            panic!("Invalid offset or length (Maximum offset 131072, got {offset}) (Maximum length 1028, got {length})");
+        } else if offset > MAX_COPY_MEDIUM_OFFSET as usize || length > MAX_COPY_MEDIUM_LEN as usize
+        {
+            assert!(
+                length >= MIN_COPY_LONG_LEN as usize,
+                "Length must be greater than or equal to 5 for long commands (Length: {length}) (Offset: {offset})"
+            );
             Self::Long {
                 offset: offset as u32,
                 length: length as u16,
                 literal: literal as u8,
             }
-        } else if offset > 1023 || length > 10 {
+        } else if offset > MAX_COPY_SHORT_OFFSET as usize || length > MAX_COPY_SHORT_LEN as usize {
+            assert!(
+                length >= MIN_COPY_MEDIUM_LEN as usize,
+                "Length must be greater than or equal to 4 for medium commands (Length: {length}) (Offset: {offset})"
+            );
             Self::Medium {
                 offset: offset as u16,
                 length: length as u8,
@@ -153,25 +177,19 @@ impl Command {
     }
 
     pub fn new_literal(length: usize) -> Self {
-        if length > 112 {
-            panic!(
-                "Literal received too long of a literal length (max 112, got {})",
-                length
-            );
-        } else {
-            Self::Literal(length as u8)
-        }
+        assert!(
+            length <= 112,
+            "Literal received too long of a literal length (max 112, got {length})"
+        );
+        Self::Literal(length as u8)
     }
 
     pub fn new_stop(literal_length: usize) -> Self {
-        if literal_length > 3 {
-            panic!(
-                "Stopcode received too long of a literal length (max 3, got {})",
-                literal_length
-            )
-        } else {
-            Self::Stop(literal_length as u8)
-        }
+        assert!(
+            literal_length <= 3,
+            "Stopcode recieved too long of a literal length (max 3, got {literal_length})"
+        );
+        Self::Stop(literal_length as u8)
     }
 
     pub fn num_of_literal(self) -> Option<usize> {
