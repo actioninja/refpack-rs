@@ -5,16 +5,22 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-use thiserror::Error;
+use std::io::{Read, Seek, Write};
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("No input provided to compression")]
-    EmptyInput,
-    #[error("Invalid magic number at compression header `{0:#04X}`")]
-    InvalidMagic(u16),
-    #[error("IO Error")]
-    Io(#[from] std::io::Error),
+use crate::header::mode::Mode;
+use crate::header::Header;
+use crate::RefPackResult;
+
+pub struct Maxis;
+
+impl Mode for Maxis {
+    const LENGTH: usize = 9;
+
+    fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Header> {
+        todo!()
+    }
+
+    fn write<W: Write + Seek>(header: Header, writer: &mut W) -> RefPackResult<()> {
+        todo!()
+    }
 }
-
-pub type Result<T> = std::result::Result<T, Error>;

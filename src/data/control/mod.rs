@@ -5,16 +5,21 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-use crate::RefPackError;
-use bitvec::prelude::*;
+pub(crate) mod iterator;
+pub mod mode;
+
+use std::io::{Read, Seek, Write};
+
 use byteorder::{ReadBytesExt, WriteBytesExt};
 #[cfg(test)]
 use proptest::collection::{size_range, vec};
 #[cfg(test)]
 use proptest::prelude::*;
-use std::io::{Read, Seek, Write};
 #[cfg(test)]
 use test_strategy::Arbitrary;
+
+pub use crate::data::control::mode::Mode;
+use crate::RefPackError;
 
 pub const MAX_COPY_SHORT_OFFSET: u16 = 1_023;
 pub const MAX_COPY_SHORT_LEN: u8 = 10;
@@ -37,41 +42,9 @@ pub const MAX_COPY_LEN: usize = MAX_COPY_LONG_LEN as usize;
 
 pub const MAX_LITERAL_LEN: usize = 112;
 
-/// ## Key for description:
-/// - Length: Length of the command in bytes
-/// - Literal Range: Possible range of number of literal bytes to copy
-/// - Literal Magic: Magic number offset for reading literal bytes
-/// - Copy Length Range: Possible range of copy length
-/// - Copy Length Magic: Magic number offset for reading copy length
-/// - Position Range: Possible range of positions
-/// - Position Magic: Magic number offset for reading position
-/// - Layout: Bit layout of the command bytes
-///
-/// ## Key for layout
-/// - 0 or 1: header
-/// - P: Position
-/// - L: Length
-/// - B: Literal bytes Length
-/// - -: Nibble Separator
-/// - |: Byte Separator
-///
-/// Numbers are always "smashed" together into as small of a space as possible
-/// EX: Getting the position from "0PPL-LLBB--PPPP-PPPP"
-/// 1. mask first byte: `(byte0 & 0b0110_0000)` = 0PP0-0000
-/// 2. shift left by 3: `(0PP0-0000 << 3)` = 0000-00PP--0000-0000
-/// 3. OR with second:  `(0000-00PP--0000-0000 | 0000-0000--PPPP-PPPP)` = 0000-00PP--PPPP-PPPP
-/// Another way to do this would be to first shift right by 5 and so on
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub enum Command {
-    /// - Length: 2
-    /// - Literal Range: 0-3
-    /// - Literal Magic: 0
-    /// - Length Range: 3-10
-    /// - Length Magic: +3
-    /// - Position Range: 1-1023
-    /// - Position Magic: +1
-    /// - Layout: 0PPL-LLBB|PPPP-PPPP
     Short {
         #[cfg_attr(test, strategy((MIN_COPY_OFFSET as u16)..=MAX_COPY_SHORT_OFFSET))]
         offset: u16,
@@ -80,14 +53,6 @@ pub enum Command {
         #[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))]
         literal: u8,
     },
-    /// - Length: 3
-    /// - Literal Range: 0-3
-    /// - Literal Magic: 0
-    /// - Length Range: 4-67
-    /// - Length Magic: +4
-    /// - Position Range: 1-16383
-    /// - Position Magic: +1
-    /// - Layout: 10LL-LLLL|BBPP-PPPP|PPPP-PPPP
     Medium {
         #[cfg_attr(test, strategy((MIN_COPY_OFFSET as u16)..=MAX_COPY_MEDIUM_OFFSET))]
         offset: u16,
@@ -96,14 +61,6 @@ pub enum Command {
         #[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))]
         literal: u8,
     },
-    /// - Length: 4
-    /// - Literal Range: 0-3
-    /// - Literal Magic: 0
-    /// - Length Range: 5-1028
-    /// - Length Magic: +5
-    /// - Position Range: 1-131072
-    /// - Position Magic: +1
-    /// - Layout: 110P-LLBB|PPPP-PPPP|PPPP-PPPP|LLLL-LLLL
     Long {
         #[cfg_attr(test, strategy(MIN_COPY_OFFSET..=MAX_COPY_LONG_OFFSET))]
         offset: u32,
@@ -112,29 +69,7 @@ pub enum Command {
         #[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))]
         literal: u8,
     },
-    /// - Length: 1
-    /// - Literal Range: 4-112; limited precision
-    /// - Literal Magic: +4
-    /// - Length Range: 0
-    /// - Length Magic: 0
-    /// - Position Range: 0
-    /// - Position Magic: 0
-    /// - Layout: 111B-BBBB
-    /// - Notes: Magic bit shift happens here for unclear reasons, effectively multiplying
-    ///        stored number by 4.
-    /// - Weird detail of how it's read; range is in fact capped at 112 even though it seems like
-    ///        it could be higher. The original program read by range of control as an absolute
-    ///        number, meaning that if the number was higher than 27, it would instead be read as a
-    ///        stopcode. Don't ask me.
     Literal(#[cfg_attr(test, strategy((0..=27_u8).prop_map(|x| (x * 4) + 4)))] u8),
-    /// - Length: 1
-    /// - Literal Range: 0-3
-    /// - Literal Magic: 0
-    /// - Length Range: 0
-    /// - Length Magic: 0
-    /// - Position Range: 0
-    /// - Position Magic: 0
-    /// - Layout: 1111-11PP
     Stop(#[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))] u8),
 }
 
@@ -229,143 +164,13 @@ impl Command {
         matches!(self, Command::Stop(_))
     }
 
-    pub fn read<R: Read + Seek>(reader: &mut R) -> Result<Self, RefPackError> {
-        let first = reader.read_u8()?;
-
-        match first {
-            0x00..=0x7F => {
-                let byte1 = first as usize;
-                let byte2: usize = reader.read_u8()?.into();
-
-                let offset = ((((byte1 & 0b0110_0000) << 3) | byte2) + 1) as u16;
-                let length = (((byte1 & 0b0001_1100) >> 2) + 3) as u8;
-                let literal = (byte1 & 0b0000_0011) as u8;
-
-                Ok(Self::Short {
-                    offset,
-                    length,
-                    literal,
-                })
-            }
-            0x80..=0xBF => {
-                let byte1: usize = first as usize;
-                let byte2: usize = reader.read_u8()?.into();
-                let byte3: usize = reader.read_u8()?.into();
-
-                let offset = ((((byte2 & 0b0011_1111) << 8) | byte3) + 1) as u16;
-                let length = ((byte1 & 0b0011_1111) + 4) as u8;
-                let literal = ((byte2 & 0b1100_0000) >> 6) as u8;
-
-                Ok(Self::Medium {
-                    offset,
-                    length,
-                    literal,
-                })
-            }
-            0xC0..=0xDF => {
-                let byte1: usize = first as usize;
-                let byte2: usize = reader.read_u8()?.into();
-                let byte3: usize = reader.read_u8()?.into();
-                let byte4: usize = reader.read_u8()?.into();
-
-                let offset = ((((byte1 & 0b0001_0000) << 12) | (byte2 << 8) | byte3) + 1) as u32;
-                let length = ((((byte1 & 0b0000_1100) << 6) | byte4) + 5) as u16;
-
-                let literal = (byte1 & 0b0000_0011) as u8;
-
-                Ok(Self::Long {
-                    offset,
-                    length,
-                    literal,
-                })
-            }
-            0xE0..=0xFB => Ok(Self::Literal(((first & 0b0001_1111) << 2) + 4)),
-            0xFC..=0xFF => Ok(Self::Stop(first & 0b0000_0011)),
-        }
+    pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> Result<Self, RefPackError> {
+        M::read(reader)
     }
 
-    pub fn write<W: Write>(self, writer: &mut W) -> Result<(), RefPackError> {
-        match self {
-            Command::Short {
-                offset,
-                length,
-                literal,
-            } => {
-                let mut out = bitvec![u8, Msb0; 0; 16];
-
-                let length_adjusted = length - 3;
-                let offset_adjusted = offset - 1;
-
-                let offset_bitview = offset_adjusted.view_bits::<Msb0>();
-                let length_bitview = length_adjusted.view_bits::<Msb0>();
-                let literal_bitview = literal.view_bits::<Msb0>();
-
-                out[1..=2].clone_from_bitslice(&offset_bitview[6..=7]);
-                out[3..=5].copy_from_bitslice(&length_bitview[5..=7]);
-                out[6..=7].copy_from_bitslice(&literal_bitview[6..=7]);
-                out[8..=15].clone_from_bitslice(&offset_bitview[8..=15]);
-
-                writer.write_all(&out.into_vec())?;
-                Ok(())
-            }
-            Command::Medium {
-                offset,
-                length,
-                literal,
-            } => {
-                let mut out = bitvec![u8, Msb0; 0; 24];
-
-                let length_adjusted = length - 4;
-                let offset_adjusted = offset - 1;
-
-                let offset_bitview = offset_adjusted.view_bits::<Msb0>();
-                let length_bitview = length_adjusted.view_bits::<Msb0>();
-                let literal_bitview = literal.view_bits::<Msb0>();
-
-                out[0..=1].copy_from_bitslice(&bitvec![u8, Msb0; 1, 0][..]);
-                out[2..=7].copy_from_bitslice(&length_bitview[2..=7]);
-                out[8..=9].copy_from_bitslice(&literal_bitview[6..=7]);
-                out[10..=23].clone_from_bitslice(&offset_bitview[2..=15]);
-
-                writer.write_all(&out.into_vec())?;
-                Ok(())
-            }
-            Command::Long {
-                offset,
-                length,
-                literal,
-            } => {
-                let mut out = bitvec![u8, Msb0; 0; 32];
-
-                let length_adjusted = length - 5;
-                let offset_adjusted = offset - 1;
-
-                let offset_bitview = offset_adjusted.view_bits::<Msb0>();
-                let length_bitview = length_adjusted.view_bits::<Msb0>();
-                let literal_bitview = literal.view_bits::<Msb0>();
-
-                out[0..=2].copy_from_bitslice(&bitvec![u8, Msb0; 1, 1, 0][..]);
-                out[3..=3].clone_from_bitslice(&offset_bitview[15..=15]);
-                out[4..=5].clone_from_bitslice(&length_bitview[6..=7]);
-                out[6..=7].copy_from_bitslice(&literal_bitview[6..=7]);
-                out[8..=23].clone_from_bitslice(&offset_bitview[16..=31]);
-                out[24..=31].clone_from_bitslice(&length_bitview[8..=15]);
-
-                writer.write_all(&out.into_vec())?;
-                Ok(())
-            }
-            Command::Literal(number) => {
-                let adjusted = (number - 4) >> 2;
-                let out = 0b1110_0000 | (adjusted & 0b0001_1111);
-                writer.write_u8(out)?;
-                Ok(())
-            }
-            Command::Stop(number) => {
-                let out = 0b1111_1100 | (number & 0b0000_0011);
-                writer.write_u8(out)?;
-                Ok(())
-            }
-        }
+    pub fn write<M: Mode>(self, writer: &mut (impl Write + Seek)) -> Result<(), RefPackError> {
+        M::write(self, writer)?;
+        Ok(())
     }
 }
 
@@ -408,8 +213,8 @@ impl Control {
         }
     }
 
-    pub fn read<R: Read + Seek>(reader: &mut R) -> Result<Self, RefPackError> {
-        let command = Command::read(reader)?;
+    pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> Result<Self, RefPackError> {
+        let command = Command::read::<M>(reader)?;
         let mut buf = vec![0u8; command.num_of_literal().unwrap_or(0)];
         reader.read_exact(&mut buf)?;
         Ok(Control {
@@ -418,52 +223,23 @@ impl Control {
         })
     }
 
-    pub fn write<R: Write + Seek>(&self, writer: &mut R) -> Result<(), RefPackError> {
-        self.command.write(writer)?;
+    pub fn write<M: Mode>(&self, writer: &mut (impl Write + Seek)) -> Result<(), RefPackError> {
+        self.command.write::<M>(writer)?;
         writer.write_all(&self.bytes)?;
         Ok(())
     }
 }
 
-/// Iterator to to read a byte reader into a sequence of controls that can be iterated through
-pub struct Iter<'a, R: Read + Seek> {
-    reader: &'a mut R,
-    reached_stop: bool,
-}
-
-impl<'a, R: Read + Seek> Iter<'a, R> {
-    pub fn new(reader: &'a mut R) -> Self {
-        Self {
-            reader,
-            reached_stop: false,
-        }
-    }
-}
-
-impl<'a, R: Read + Seek> Iterator for Iter<'a, R> {
-    type Item = Control;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.reached_stop {
-            None
-        } else {
-            Control::read(self.reader).ok().map(|control| {
-                if control.command.is_stop() {
-                    self.reached_stop = true;
-                }
-                control
-            })
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::io::{Cursor, SeekFrom};
+
     use proptest::prop_assert_eq;
-    use std::io::Cursor;
-    use std::io::SeekFrom;
     use test_strategy::proptest;
+
+    use super::*;
+    use crate::data::control::iterator::Iter;
+    use crate::data::control::mode::Reference;
 
     #[proptest]
     fn symmetrical_command_copy(
@@ -473,9 +249,9 @@ mod tests {
     ) {
         let expected = Command::new(offset, length, literal);
         let mut buf = Cursor::new(vec![]);
-        expected.write(&mut buf).unwrap();
+        expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read(&mut buf).unwrap();
+        let out: Command = Command::read::<Reference>(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -486,9 +262,9 @@ mod tests {
 
         let expected = Command::new_literal(real_length);
         let mut buf = Cursor::new(vec![]);
-        expected.write(&mut buf).unwrap();
+        expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read(&mut buf).unwrap();
+        let out: Command = Command::read::<Reference>(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -497,9 +273,9 @@ mod tests {
     fn symmetrical_command_stop(#[strategy(0..=3_usize)] input: usize) {
         let expected = Command::new_stop(input);
         let mut buf = Cursor::new(vec![]);
-        expected.write(&mut buf).unwrap();
+        expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read(&mut buf).unwrap();
+        let out: Command = Command::read::<Reference>(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -508,9 +284,9 @@ mod tests {
     fn symmetrical_any_command(input: Command) {
         let expected = input;
         let mut buf = Cursor::new(vec![]);
-        expected.write(&mut buf).unwrap();
+        expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read(&mut buf).unwrap();
+        let out: Command = Command::read::<Reference>(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -549,9 +325,9 @@ mod tests {
     fn symmetrical_control(input: Control) {
         let expected = input;
         let mut buf = Cursor::new(vec![]);
-        expected.write(&mut buf).unwrap();
+        expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Control = Control::read(&mut buf).unwrap();
+        let out: Control = Control::read::<Reference>(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -573,7 +349,7 @@ mod tests {
             .iter()
             .map(|control: &Control| -> Vec<u8> {
                 let mut buf = Cursor::new(vec![]);
-                control.write(&mut buf).unwrap();
+                control.write::<Reference>(&mut buf).unwrap();
                 buf.into_inner()
             })
             .fold(vec![], |mut acc, mut buf| {
@@ -582,7 +358,7 @@ mod tests {
             });
 
         let mut cursor = Cursor::new(buf);
-        let out: Vec<Control> = Iter::new(&mut cursor).collect();
+        let out: Vec<Control> = Iter::<_, Reference>::new(&mut cursor).collect();
 
         prop_assert_eq!(out, expected);
     }

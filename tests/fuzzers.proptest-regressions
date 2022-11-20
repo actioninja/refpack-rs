@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 124e694733eeaa1a11dd9666a53fb5d0e5bd9b19864f598d95f15e273fdda248 # shrinks to input = _TestRustCompressionSymmetricalFuzzedArgs { input: [10] }

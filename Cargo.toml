@@ -23,6 +23,7 @@ proptest = "1.0"
 test-strategy = "0.2"
 criterion = "0.4"
 rand = "0.8"
+refpack-sys = { git = "https://github.com/actioninja/refpack-sys.git"}
 
 [[bench]]
 name = "synthetic_performance"

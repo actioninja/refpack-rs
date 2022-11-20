@@ -4,17 +4,3 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.                   /
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
-
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("No input provided to compression")]
-    EmptyInput,
-    #[error("Invalid magic number at compression header `{0:#04X}`")]
-    InvalidMagic(u16),
-    #[error("IO Error")]
-    Io(#[from] std::io::Error),
-}
-
-pub type Result<T> = std::result::Result<T, Error>;

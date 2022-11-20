@@ -4,17 +4,16 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.                   /
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
+pub(crate) mod compression;
+pub mod control;
+mod decompression;
 
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("No input provided to compression")]
-    EmptyInput,
-    #[error("Invalid magic number at compression header `{0:#04X}`")]
-    InvalidMagic(u16),
-    #[error("IO Error")]
-    Io(#[from] std::io::Error),
+pub(crate) fn copy_within_slice(v: &mut [impl Copy], from: usize, to: usize, len: usize) {
+    if from > to {
+        let (dst, src) = v.split_at_mut(from);
+        dst[to..to + len].copy_from_slice(&src[..len]);
+    } else {
+        let (src, dst) = v.split_at_mut(to);
+        dst[..len].copy_from_slice(&src[from..from + len]);
+    }
 }
-
-pub type Result<T> = std::result::Result<T, Error>;

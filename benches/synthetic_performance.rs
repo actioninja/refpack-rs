@@ -5,19 +5,20 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+use std::io::Cursor;
+use std::iter;
+
 use criterion::measurement::WallTime;
 use criterion::{
     black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion, Throughput,
 };
 use rand::prelude::*;
 use refpack::{compress, decompress, easy_compress, easy_decompress};
-use std::io::Cursor;
-use std::iter;
 
 const CONST_BENCH_LENGTH: usize = 8096;
 
 fn random_vec(len: usize) -> Vec<u8> {
-    iter::repeat_with(|| random::<u8>()).take(len).collect()
+    iter::repeat_with(random::<u8>).take(len).collect()
 }
 
 fn random_increasing_vecs(num: usize, increase_interval: usize) -> Vec<Vec<u8>> {
@@ -70,7 +71,7 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
 }
 
 fn random_data_bench(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("Constant Length Random Input Data"));
+    let mut group = c.benchmark_group("Constant Length Random Input Data".to_string());
 
     let constant_input = random_vec(CONST_BENCH_LENGTH);
 
