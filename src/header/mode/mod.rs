@@ -16,6 +16,7 @@ pub use reference::Reference;
 use crate::header::Header;
 use crate::RefPackResult;
 
+
 /// Represents a read and write format for a Header
 ///
 pub trait Mode {

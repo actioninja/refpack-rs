@@ -52,9 +52,9 @@ mod test {
     use proptest::prop_assert_eq;
     use test_strategy::proptest;
 
+    use super::*;
     use crate::data::control::mode::reference::Reference;
     use crate::data::control::{Command, Control};
-    use crate::iterator::Iter;
 
     #[proptest]
     fn test_control_iterator(input: Vec<Control>) {

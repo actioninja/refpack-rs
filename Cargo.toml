@@ -14,15 +14,15 @@ keywords = ["refpack", "dbpf", "far", "ea", "qfs"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitvec = "1.0"
 byteorder = "1.4"
 thiserror = "1.0"
 
 [dev-dependencies]
-proptest = "1.0"
-test-strategy = "0.2"
 criterion = "0.4"
+paste = "1.0"
+proptest = "1.0"
 rand = "0.8"
+test-strategy = "0.2"
 refpack-sys = { git = "https://github.com/actioninja/refpack-sys.git"}
 
 [[bench]]

@@ -31,3 +31,30 @@ impl Mode for Reference {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::io::Cursor;
+
+    use proptest::prop_assert_eq;
+    use test_strategy::proptest;
+
+    use super::*;
+    use crate::header::Header;
+
+    #[proptest]
+    fn symmetrical_read_write(header: Header) {
+        let expected = Header {
+            decompressed_length: header.decompressed_length,
+            compressed_length: None,
+        };
+
+        let mut write_buf = vec![];
+        let mut write_cur = Cursor::new(&mut write_buf);
+        header.write::<Reference>(&mut write_cur).unwrap();
+        let mut read_cur = Cursor::new(&mut write_buf);
+        let got = Header::read::<Reference>(&mut read_cur).unwrap();
+
+        prop_assert_eq!(expected, got);
+    }
+}

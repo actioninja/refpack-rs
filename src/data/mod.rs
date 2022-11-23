@@ -4,9 +4,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.                   /
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
-pub(crate) mod compression;
+pub mod compression;
 pub mod control;
-mod decompression;
+pub mod decompression;
 
 pub(crate) fn copy_within_slice(v: &mut [impl Copy], from: usize, to: usize, len: usize) {
     if from > to {

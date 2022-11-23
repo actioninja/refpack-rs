@@ -5,16 +5,14 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+use std::hash::Hasher;
 use std::io::{Read, Seek, Write};
 
-use bitvec::bitvec;
-use bitvec::order::Msb0;
-use bitvec::view::BitView;
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
 use crate::data::control::mode::Mode;
 use crate::data::control::Command;
-use crate::{RefPackError, RefPackResult};
+use crate::RefPackResult;
 
 /// Standard encode/decode format used by the vast majority of RefPack implementations
 /// Dates back to the original reference implementation by Frank Barchard
@@ -164,12 +162,14 @@ pub fn read_long(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Co
 
 /// Standard read implementation of literals. See [Standard] for specification
 #[inline]
+#[must_use]
 pub fn read_literal(first: u8) -> Command {
     Command::Literal(((first & 0b0001_1111) << 2) + 4)
 }
 
 /// Standard read implementation of stopcodes. See [Standard] for specification
 #[inline]
+#[must_use]
 pub fn read_stop(first: u8) -> Command {
     Command::Stop(first & 0b0000_0011)
 }
@@ -181,21 +181,16 @@ pub fn write_short(
     literal: u8,
     writer: &mut (impl Write + Seek),
 ) -> RefPackResult<()> {
-    let mut out = bitvec![u8, Msb0; 0; 16];
-
     let length_adjusted = length - 3;
     let offset_adjusted = offset - 1;
 
-    let offset_bitview = offset_adjusted.view_bits::<Msb0>();
-    let length_bitview = length_adjusted.view_bits::<Msb0>();
-    let literal_bitview = literal.view_bits::<Msb0>();
+    let first = (((offset_adjusted & 0b0000_0011_0000_0000) >> 3) as u8
+        | (length_adjusted & 0b0000_0111) << 2
+        | literal & 0b0000_0011) as u8;
+    let second = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
 
-    out[1..=2].clone_from_bitslice(&offset_bitview[6..=7]);
-    out[3..=5].copy_from_bitslice(&length_bitview[5..=7]);
-    out[6..=7].copy_from_bitslice(&literal_bitview[6..=7]);
-    out[8..=15].clone_from_bitslice(&offset_bitview[8..=15]);
-
-    writer.write_all(&out.into_vec())?;
+    writer.write_u8(first)?;
+    writer.write_u8(second)?;
     Ok(())
 }
 
@@ -206,29 +201,53 @@ pub fn write_medium(
     literal: u8,
     writer: &mut (impl Write + Seek),
 ) -> RefPackResult<()> {
-    let mut out = bitvec![u8, Msb0; 0; 24];
-
     let length_adjusted = length - 4;
     let offset_adjusted = offset - 1;
 
-    let offset_bitview = offset_adjusted.view_bits::<Msb0>();
-    let length_bitview = length_adjusted.view_bits::<Msb0>();
-    let literal_bitview = literal.view_bits::<Msb0>();
+    let first = 0b1000_0000 | length_adjusted & 0b0011_1111;
+    let second = (literal & 0b0000_0011) << 6 | (offset_adjusted >> 8) as u8;
+    let third = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
 
-    out[0..=1].copy_from_bitslice(&bitvec![u8, Msb0; 1, 0][..]);
-    out[2..=7].copy_from_bitslice(&length_bitview[2..=7]);
-    out[8..=9].copy_from_bitslice(&literal_bitview[6..=7]);
-    out[10..=23].clone_from_bitslice(&offset_bitview[2..=15]);
+    writer.write_u8(first)?;
+    writer.write_u8(second)?;
+    writer.write_u8(third)?;
 
-    writer.write_all(&out.into_vec())?;
     Ok(())
 }
 
 #[inline]
-pub fn write_long() {}
+pub fn write_long(
+    offset: u32,
+    length: u16,
+    literal: u8,
+    writer: &mut (impl Write + Seek),
+) -> RefPackResult<()> {
+    let length_adjusted = length - 5;
+    let offset_adjusted = offset - 1;
+
+    let first = 0b1100_0000u8
+        | ((offset_adjusted >> 12) & 0b0001_0000) as u8
+        | ((length_adjusted >> 6) & 0b0000_1100) as u8
+        | literal & 0b0000_0011;
+    let second = ((offset_adjusted >> 8) & 0b1111_1111) as u8;
+    let third = (offset_adjusted & 0b1111_1111) as u8;
+    let fourth = (length_adjusted & 0b1111_1111) as u8;
+
+    writer.write_u8(first)?;
+    writer.write_u8(second)?;
+    writer.write_u8(third)?;
+    writer.write_u8(fourth)?;
+
+    Ok(())
+}
 
 #[inline]
-pub fn write_literal() {}
+pub fn write_literal(literal: u8, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
+    let adjusted = (literal - 4) >> 2;
+    let out = 0b1110_0000 | (adjusted & 0b0001_1111);
+    writer.write_u8(out)?;
+    Ok(())
+}
 
 #[inline]
 pub fn write_stop(number: u8, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
@@ -266,37 +285,9 @@ impl Mode for Reference {
                 offset,
                 length,
                 literal,
-            } => {
-                let mut out = bitvec![u8, Msb0; 0; 32];
-
-                let length_adjusted = length - 5;
-                let offset_adjusted = offset - 1;
-
-                let offset_bitview = offset_adjusted.view_bits::<Msb0>();
-                let length_bitview = length_adjusted.view_bits::<Msb0>();
-                let literal_bitview = literal.view_bits::<Msb0>();
-
-                out[0..=2].copy_from_bitslice(&bitvec![u8, Msb0; 1, 1, 0][..]);
-                out[3..=3].clone_from_bitslice(&offset_bitview[15..=15]);
-                out[4..=5].clone_from_bitslice(&length_bitview[6..=7]);
-                out[6..=7].copy_from_bitslice(&literal_bitview[6..=7]);
-                out[8..=23].clone_from_bitslice(&offset_bitview[16..=31]);
-                out[24..=31].clone_from_bitslice(&length_bitview[8..=15]);
-
-                writer.write_all(&out.into_vec())?;
-                Ok(())
-            }
-            Command::Literal(number) => {
-                let adjusted = (number - 4) >> 2;
-                let out = 0b1110_0000 | (adjusted & 0b0001_1111);
-                writer.write_u8(out)?;
-                Ok(())
-            }
-            Command::Stop(number) => {
-                let out = 0b1111_1100 | (number & 0b0000_0011);
-                writer.write_u8(out)?;
-                Ok(())
-            }
+            } => write_long(offset, length, literal, writer),
+            Command::Literal(literal) => write_literal(literal, writer),
+            Command::Stop(literal) => write_stop(literal, writer),
         }
     }
 }

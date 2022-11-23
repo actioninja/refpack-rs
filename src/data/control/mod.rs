@@ -10,7 +10,6 @@ pub mod mode;
 
 use std::io::{Read, Seek, Write};
 
-use byteorder::{ReadBytesExt, WriteBytesExt};
 #[cfg(test)]
 use proptest::collection::{size_range, vec};
 #[cfg(test)]
@@ -74,6 +73,10 @@ pub enum Command {
 }
 
 impl Command {
+    /// Create a new copy type `Command` struct.
+    /// # Panics
+    /// Panics if you attempt to create an invalid Command in some way
+    #[must_use]
     pub fn new(offset: usize, length: usize, literal: usize) -> Self {
         assert!(
             literal <= MAX_COPY_LIT_LEN as usize,
@@ -112,6 +115,10 @@ impl Command {
         }
     }
 
+    /// Creates a new literal command block
+    /// # Panics
+    /// Panics if you attempt to create too long of a literal command (> 112)
+    #[must_use]
     pub fn new_literal(length: usize) -> Self {
         assert!(
             length <= 112,
@@ -120,6 +127,10 @@ impl Command {
         Self::Literal(length as u8)
     }
 
+    /// Creates a new stopcode command block
+    /// # Panics
+    /// Panics if you attempt to create too long of a stop code (> 3)
+    #[must_use]
     pub fn new_stop(literal_length: usize) -> Self {
         assert!(
             literal_length <= 3,
@@ -128,6 +139,9 @@ impl Command {
         Self::Stop(literal_length as u8)
     }
 
+    /// Get number of literal bytes on the command, if they have any
+    /// Returns `None` if the length is 0
+    #[must_use]
     pub fn num_of_literal(self) -> Option<usize> {
         match self {
             Command::Short { literal, .. }
@@ -150,6 +164,7 @@ impl Command {
         }
     }
 
+    #[must_use]
     pub fn offset_copy(self) -> Option<(usize, usize)> {
         match self {
             Command::Short { offset, length, .. } | Command::Medium { offset, length, .. } => {
@@ -160,6 +175,7 @@ impl Command {
         }
     }
 
+    #[must_use]
     pub fn is_stop(self) -> bool {
         matches!(self, Command::Stop(_))
     }
@@ -195,10 +211,12 @@ pub struct Control {
 }
 
 impl Control {
+    #[must_use]
     pub fn new(command: Command, bytes: Vec<u8>) -> Self {
         Self { command, bytes }
     }
 
+    #[must_use]
     pub fn new_literal_block(bytes: &[u8]) -> Self {
         Self {
             command: Command::new_literal(bytes.len()),
@@ -206,6 +224,7 @@ impl Control {
         }
     }
 
+    #[must_use]
     pub fn new_stop(bytes: &[u8]) -> Self {
         Self {
             command: Command::new_stop(bytes.len()),
@@ -328,37 +347,6 @@ mod tests {
         expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
         let out: Control = Control::read::<Reference>(&mut buf).unwrap();
-
-        prop_assert_eq!(out, expected);
-    }
-
-    #[proptest]
-    fn test_control_iterator(input: Vec<Control>) {
-        //todo: make this not a stupid hack
-        let mut input: Vec<Control> = input
-            .iter()
-            .filter(|c| !c.command.is_stop())
-            .cloned()
-            .collect();
-        input.push(Control {
-            command: Command::new_stop(0),
-            bytes: vec![],
-        });
-        let expected = input.clone();
-        let buf = input
-            .iter()
-            .map(|control: &Control| -> Vec<u8> {
-                let mut buf = Cursor::new(vec![]);
-                control.write::<Reference>(&mut buf).unwrap();
-                buf.into_inner()
-            })
-            .fold(vec![], |mut acc, mut buf| {
-                acc.append(&mut buf);
-                acc
-            });
-
-        let mut cursor = Cursor::new(buf);
-        let out: Vec<Control> = Iter::<_, Reference>::new(&mut cursor).collect();
 
         prop_assert_eq!(out, expected);
     }

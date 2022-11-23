@@ -8,14 +8,17 @@ pub const MAX_WINDOW_SIZE: u32 = MAX_OFFSET_DISTANCE as u32;
 
 use std::cmp::max;
 use std::collections::HashMap;
-use std::io::{Read, Seek};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::data::control;
 use crate::data::control::{
     Command, Control, MAX_COPY_MEDIUM_OFFSET, MAX_COPY_SHORT_OFFSET, MAX_OFFSET_DISTANCE,
     MIN_COPY_LONG_LEN, MIN_COPY_MEDIUM_LEN, MIN_COPY_OFFSET,
 };
-use crate::{RefPackError, MAX_LITERAL_BLOCK};
+use crate::format::Format;
+use crate::header::mode::Mode;
+use crate::header::Header;
+use crate::{RefPackError, RefPackResult, MAX_LITERAL_BLOCK};
 
 //Optimization trick from libflate_lz77
 //Faster lookups for very large tables
@@ -175,4 +178,82 @@ pub(crate) fn encode_stream(
     }
 
     Ok(controls)
+}
+
+/// Compress a data stream from a Reader to refpack format into a Writer.
+///
+/// First parameter is the length; allows for compressing an arbitrary block length from any reader.
+///
+/// Second and third parameter are the pregenerated reader and destination writ.er
+///
+/// # Example
+///
+/// ```Rust
+/// use std::io::Cursor;
+///
+/// let mut input = Cursor::new(b"Hello World!");
+/// let mut output = Cursor::new(Vec::new());
+///
+/// // Compress the input into the output
+/// refpack::compress(input.len(), &mut input, &mut output);
+/// // output now contains the compressed version of the input
+///
+/// ```
+///
+/// # Errors
+///
+/// Will return `Error::Io` if there is an IO error
+/// Will return `Error::EmptyInput` if the length provided is 0
+fn compress<F: Format>(
+    length: usize,
+    reader: &mut (impl Read + Seek),
+    writer: &mut (impl Write + Seek),
+) -> RefPackResult<()> {
+    if length == 0 {
+        return Err(RefPackError::EmptyInput);
+    }
+
+    let controls = encode_stream(reader, length)?;
+
+    let header_length = F::HeaderMode::LENGTH;
+
+    let header_position = writer.stream_position()?;
+    let data_start_pos = writer.seek(SeekFrom::Current(header_length as i64))?;
+
+    for control in controls {
+        control.write::<F::ControlMode>(writer)?;
+    }
+
+    let data_end_pos = writer.stream_position()?;
+
+    let compression_length = data_end_pos - data_start_pos;
+
+    let header = Header {
+        compressed_length: Some(compression_length as u32),
+        decompressed_length: length as u32,
+    };
+
+    writer.seek(SeekFrom::Start(header_position))?;
+
+    header.write::<F::HeaderMode>(writer)?;
+
+    Ok(())
+}
+
+/// Wrapped compress function with a bit easier and cleaner of an API.
+/// Takes a slice of uncompressed bytes and returns a Vec of compressed bytes
+/// In implementation this just creates `Cursor`s for the reader and writer and calls `compress`
+///
+/// Marked with `inline` so it should be inlined across crates and equivalent to manually creating
+/// the cursors.
+///
+/// # Errors
+///
+/// Will return `Error::Io` if there is an IO error
+#[inline]
+pub fn easy_compress<F: Format>(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
+    let mut reader = Cursor::new(input);
+    let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
+    compress::<F>(input.len(), &mut reader, &mut writer)?;
+    Ok(writer.into_inner())
 }
