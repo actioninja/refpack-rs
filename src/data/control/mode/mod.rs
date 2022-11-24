@@ -51,3 +51,79 @@ pub trait Mode {
     fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Command>;
     fn write<W: Write + Seek>(command: Command, writer: &mut W) -> RefPackResult<()>;
 }
+
+#[cfg(test)]
+pub(crate) mod test {
+    use std::io::Cursor;
+
+    use proptest::prelude::*;
+
+    use super::*;
+
+    prop_compose! {
+        pub fn generate_decoder_input
+        (header: u8, header_mask: u8, length: usize)
+        (vec in prop::collection::vec(any::<u8>(), length))
+        -> Vec<u8> {
+            let mut vec_mut = vec;
+            vec_mut[0] = header | vec_mut[0] & !header_mask;
+            vec_mut
+        }
+    }
+
+    prop_compose! {
+        pub fn generate_decoder_input_with_ceiling
+            (header: u8, header_mask: u8, length: usize, limit: u8)
+            (vec in prop::collection::vec(0..=limit, length))
+            -> Vec<u8> {
+            let mut vec_mut = vec;
+            vec_mut[0] = header | vec_mut[0] & !header_mask;
+            vec_mut
+        }
+    }
+
+    macro_rules! symmetrical_rw {
+        ($in_ty: path, $in_ident: ident, $error_msg: expr) => {
+            let mut cursor = Cursor::new($in_ident.clone());
+            let command_read = M::read(&mut cursor).unwrap();
+            let does_match = matches!(command_read, $in_ty { .. });
+            prop_assert!(does_match, $error_msg);
+            let mut out_buf = Cursor::new(vec![]);
+            M::write(command_read, &mut out_buf).unwrap();
+            let result = out_buf.into_inner();
+            prop_assert_eq!($in_ident, result);
+        };
+    }
+
+    pub fn read_write_mode<M: Mode>(
+        short: Vec<u8>,
+        medium: Vec<u8>,
+        long: Vec<u8>,
+        literal: Vec<u8>,
+        stop: Vec<u8>,
+    ) -> Result<(), TestCaseError> {
+        symmetrical_rw!(
+            Command::Short,
+            short,
+            "Failed to parse short from short input"
+        );
+
+        symmetrical_rw!(
+            Command::Medium,
+            medium,
+            "Failed to parse medium from medium input"
+        );
+
+        symmetrical_rw!(Command::Long, long, "Failed to parse long from long input");
+
+        symmetrical_rw!(
+            Command::Literal,
+            literal,
+            "Failed to parse literal from literal input"
+        );
+
+        symmetrical_rw!(Command::Stop, stop, "Failed to parse stop from stop input");
+
+        Ok(())
+    }
+}

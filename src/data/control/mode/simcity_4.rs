@@ -46,7 +46,7 @@ impl Mode for Simcity4 {
                 let third = reader.read_u8()?;
                 let fourth = reader.read_u8()?;
 
-                let offset = ((second as u32) << 8 | third as u32);
+                let offset = (second as u32) << 8 | third as u32;
                 let length = (((first & 0b0001_1100) as u16) << 6 | fourth as u16) + 5;
                 let literal = first & 0b0000_0011;
                 Ok(Command::Long {
@@ -80,11 +80,11 @@ impl Mode for Simcity4 {
                 let length_adjusted = length - 5;
 
                 let first = 0b1100_0000u8
-                    | ((length_adjusted << 2) & 0b0001_1100) as u8
+                    | ((length_adjusted >> 6) & 0b0001_1100) as u8
                     | literal & 0b0000_0011;
                 let second = ((offset >> 8) & 0b1111_1111) as u8;
                 let third = (offset & 0b1111_1111) as u8;
-                let fourth = (length & 0b1111_1111) as u8;
+                let fourth = (length_adjusted & 0b1111_1111) as u8;
 
                 writer.write_u8(first)?;
                 writer.write_u8(second)?;
@@ -95,5 +95,31 @@ impl Mode for Simcity4 {
             Command::Literal(literal) => write_literal(literal, writer),
             Command::Stop(literal) => write_stop(literal, writer),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::io::Cursor;
+
+    use proptest::prelude::*;
+    use test_strategy::proptest;
+
+    use super::super::test::{
+        generate_decoder_input, generate_decoder_input_with_ceiling, read_write_mode,
+    };
+    use super::*;
+
+    #[proptest]
+    fn symmetrical_read_write(
+        #[strategy(generate_decoder_input(0b0000_0000, 0b1000_0000, 2))] short_in: Vec<u8>,
+        #[strategy(generate_decoder_input(0b1000_0000, 0b1100_0000, 3))] medium_in: Vec<u8>,
+        #[strategy(generate_decoder_input(0b1100_0000, 0b1110_0000, 4))] long_in: Vec<u8>,
+        #[strategy(generate_decoder_input_with_ceiling(0b1110_0000, 0b1110_0000, 1, 27))]
+        literal_in: Vec<u8>,
+        #[strategy(generate_decoder_input(0b1111_1100, 0b1111_1100, 1))] stop_in: Vec<u8>,
+    ) {
+        let result = read_write_mode::<Simcity4>(short_in, medium_in, long_in, literal_in, stop_in);
+        prop_assert!(result.is_ok(), "Inner: {}", result.unwrap_err());
     }
 }

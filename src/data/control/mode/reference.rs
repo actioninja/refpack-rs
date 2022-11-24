@@ -83,7 +83,7 @@ use crate::RefPackResult;
 ///   stored number by 4.
 /// - Weird detail of how it's read; range is in fact capped at 112 even though it seems like
 ///   it could be higher. The original program read by range of control as an absolute
-///   number, meaning that if the number was higher than 27, it would instead be read as a
+///   number, meaning that if the number was higher than 27 (0b0001_1011), it would instead be read as a
 ///   stopcode. Don't ask me, it's in the reference implementation and persisted.
 /// ### Stop
 /// - Length: 1
@@ -289,5 +289,30 @@ impl Mode for Reference {
             Command::Literal(literal) => write_literal(literal, writer),
             Command::Stop(literal) => write_stop(literal, writer),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use proptest::prelude::*;
+    use test_strategy::proptest;
+
+    use super::super::test::{
+        generate_decoder_input, generate_decoder_input_with_ceiling, read_write_mode,
+    };
+    use super::*;
+
+    #[proptest]
+    fn symmetrical_read_write(
+        #[strategy(generate_decoder_input(0b0000_0000, 0b1000_0000, 2))] short_in: Vec<u8>,
+        #[strategy(generate_decoder_input(0b1000_0000, 0b1100_0000, 3))] medium_in: Vec<u8>,
+        #[strategy(generate_decoder_input(0b1100_0000, 0b1110_0000, 4))] long_in: Vec<u8>,
+        #[strategy(generate_decoder_input_with_ceiling(0b1110_0000, 0b1110_0000, 1, 27))]
+        literal_in: Vec<u8>,
+        #[strategy(generate_decoder_input(0b1111_1100, 0b1111_1100, 1))] stop_in: Vec<u8>,
+    ) {
+        let result =
+            read_write_mode::<Reference>(short_in, medium_in, long_in, literal_in, stop_in);
+        prop_assert!(result.is_ok(), "\nInner: {}\n", result.unwrap_err());
     }
 }

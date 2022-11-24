@@ -44,16 +44,20 @@
 #![warn(clippy::pedantic, clippy::cargo)]
 // Due to the high amount of byte conversions, sometimes intentional lossy conversions are necessary.
 #![allow(clippy::cast_possible_truncation)]
+// same as above
+#![allow(clippy::cast_lossless)]
 // Annoying and wrong, RefPack is a compression scheme.
 #![allow(clippy::doc_markdown)]
 // Default::default() is more idiomatic imo
 #![allow(clippy::default_trait_access)]
 // too many lines is a dumb metric
 #![allow(clippy::too_many_lines)]
+// causes weirdness with header and reader
+#![allow(clippy::similar_names)]
 
 pub mod data;
 mod error;
-mod format;
+pub mod format;
 pub mod header;
 
 use data::control::{MAX_LITERAL_LEN, MAX_OFFSET_DISTANCE};
