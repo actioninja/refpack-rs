@@ -27,7 +27,7 @@ impl Mode for Maxis {
         };
         let magic = reader.read_u16::<BigEndian>()?;
         if magic != header::MAGIC {
-            return Err(RefPackError::InvalidMagic(magic));
+            return Err(RefPackError::BadMagic(magic));
         }
         //Inexplicably this weird three byte number is stored Big Endian
         let decompressed_length = reader.read_u24::<BigEndian>()?;

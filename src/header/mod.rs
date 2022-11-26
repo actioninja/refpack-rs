@@ -21,6 +21,7 @@ pub mod mode;
 /// literal stream sequence
 pub const MAGIC: u16 = 0x10FB;
 
+/// Internal struct to represent a decoded header
 #[derive(Eq, PartialEq, Debug, Default, Copy, Clone)]
 #[cfg_attr(test, derive(Arbitrary))]
 pub struct Header {
@@ -29,10 +30,18 @@ pub struct Header {
 }
 
 impl Header {
+    /// # Errors
+    /// Returns [RefPackError::BadMagic](crate::RefPackError::BadMagic) if the read failed due to
+    /// an invalid magic number in the header
+    /// Returns [RefPackError::Io](crate::RefPackError::BadMagic) if the read failed due to a
+    /// generic IO Error
     pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> RefPackResult<Header> {
         M::read(reader)
     }
 
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::BadMagic) if the write failed due to a
+    /// generic IO Error
     pub fn write<M: Mode>(self, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
         M::write(self, writer)
     }

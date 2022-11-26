@@ -4,7 +4,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.                   /
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
-pub const MAX_WINDOW_SIZE: u32 = MAX_OFFSET_DISTANCE as u32;
 
 use std::cmp::max;
 use std::collections::HashMap;
@@ -12,13 +11,16 @@ use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::data::control;
 use crate::data::control::{
-    Command, Control, MAX_COPY_MEDIUM_OFFSET, MAX_COPY_SHORT_OFFSET, MAX_OFFSET_DISTANCE,
-    MIN_COPY_LONG_LEN, MIN_COPY_MEDIUM_LEN, MIN_COPY_OFFSET,
+    Command, Control, MAX_COPY_MEDIUM_OFFSET, MAX_COPY_SHORT_OFFSET, MAX_LITERAL_LEN,
+    MAX_OFFSET_DISTANCE, MIN_COPY_LONG_LEN, MIN_COPY_MEDIUM_LEN, MIN_COPY_OFFSET,
 };
 use crate::format::Format;
 use crate::header::mode::Mode;
 use crate::header::Header;
-use crate::{RefPackError, RefPackResult, MAX_LITERAL_BLOCK};
+use crate::{RefPackError, RefPackResult};
+
+pub const MAX_WINDOW_SIZE: u32 = MAX_OFFSET_DISTANCE as u32;
+pub const MAX_LITERAL_BLOCK: u16 = MAX_LITERAL_LEN as u16;
 
 //Optimization trick from libflate_lz77
 //Faster lookups for very large tables

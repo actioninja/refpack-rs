@@ -5,6 +5,9 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+//! Organizational module for Simcity 4 Control Format.
+//! You should prefer to use the reexport in [mode](crate::data::control::mode) over this module directly.
+
 use std::hash::Hasher;
 use std::io::{Read, Seek, Write};
 
@@ -14,92 +17,67 @@ use crate::data::control::mode::Mode;
 use crate::data::control::Command;
 use crate::RefPackResult;
 
-/// Standard encode/decode format used by the vast majority of RefPack implementations
+/// Reference encode/decode format used by the vast majority of RefPack implementations.
 /// Dates back to the original reference implementation by Frank Barchard
 ///
-/// ## Key for description:
-/// - Length: Length of the command in bytes
-/// - Literal Range: Possible range of number of literal bytes to copy
-/// - Literal Magic: Magic number offset for reading literal bytes
-/// - Copy Length Range: Possible range of copy length
-/// - Copy Length Magic: Magic number offset for reading copy length
-/// - Position Range: Possible range of positions
-/// - Position Magic: Magic number offset for reading position
-/// - Layout: Bit layout of the command bytes
-///
-/// ## Key for layout
-/// - 0 or 1: header
-/// - P: Position
-/// - L: Length
-/// - B: Literal bytes Length
-/// - -: Nibble Separator
-/// - |: Byte Separator
-///
+/// ## Split Numbers
 /// Numbers are always "smashed" together into as small of a space as possible
-/// EX: Getting the position from "0PPL-LLBB--PPPP-PPPP"
-/// 1. mask first byte: `(byte0 & 0b0110_0000)` = 0PP0-0000
-/// 2. shift left by 3: `(0PP0-0000 << 3)` = 0000-00PP--0000-0000
-/// 3. OR with second:  `(0000-00PP--0000-0000 | 0000-0000--PPPP-PPPP)` = 0000-00PP--PPPP-PPPP
+/// EX: Getting the position from "`0PPL-LLBB--PPPP-PPPP`"
+/// 1. mask first byte: `(byte0 & 0b0110_0000)` = `0PP0-0000`
+/// 2. shift left by 3: `(0PP0-0000 << 3)` = `0000-00PP--0000-0000`
+/// 3. OR with second:  `(0000-00PP--0000-0000 | 0000-0000--PPPP-PPPP)` = `0000-00PP--PPPP-PPPP`
 /// Another way to do this would be to first shift right by 5 and so on
 ///
+/// ## Key for description:
+/// - Len: Length of the command in bytes
+/// - Literal: Possible range of number of literal bytes to copy
+/// - Length: Possible range of copy length
+/// - Position Range: Possible range of positions
+/// - Layout: Bit layout of the command bytes
+///
+/// ### Key for layout
+/// - `0` or `1`: header
+/// - `P`: Position
+/// - `L`: Length
+/// - `B`: Literal bytes Length
+/// - `-`: Nibble Separator
+/// - `:`: Byte Separator
+///
 /// ## Commands
-/// ### Short
-/// - Length: 2
-/// - Literal Range: 0-3
-/// - Literal Magic: 0
-/// - Length Range: 3-10
-/// - Length Magic: +3
-/// - Position Range: 1-1023
-/// - Position Magic: +1
-/// - Layout: 0PPL-LLBB|PPPP-PPPP
-/// ### Medium
-/// - Length: 3
-/// - Literal Range: 0-3
-/// - Literal Magic: 0
-/// - Length Range: 4-67
-/// - Length Magic: +4
-/// - Position Range: 1-16383
-/// - Position Magic: +1
-/// - Layout: 10LL-LLLL|BBPP-PPPP|PPPP-PPPP
-/// ### Long
-/// - Length: 4
-/// - Literal Range: 0-3
-/// - Literal Magic: 0
-/// - Length Range: 5-1028
-/// - Length Magic: +5
-/// - Position Range: 1-131072
-/// - Position Magic: +1
-/// - Layout: 110P-LLBB|PPPP-PPPP|PPPP-PPPP|LLLL-LLLL
-/// ### Literal
-/// - Length: 1
-/// - Literal Range: 4-112; limited precision
-/// - Literal Magic: +4
-/// - Length Range: 0
-/// - Length Magic: 0
-/// - Position Range: 0
-/// - Position Magic: 0
-/// - Layout: 111B-BBBB
-/// - Notes: Magic bit shift happens here for unclear reasons, effectively multiplying
-///   stored number by 4.
-/// - Weird detail of how it's read; range is in fact capped at 112 even though it seems like
-///   it could be higher. The original program read by range of control as an absolute
-///   number, meaning that if the number was higher than 27 (0b0001_1011), it would instead be read as a
-///   stopcode. Don't ask me, it's in the reference implementation and persisted.
-/// ### Stop
-/// - Length: 1
-/// - Literal Range: 0-3
-/// - Literal Magic: 0
-/// - Length Range: 0
-/// - Length Magic: 0
-/// - Position Range: 0
-/// - Position Magic: 0
-/// - Layout: 1111-11PP
+///
+/// | Command | Len | Literal | Length | Position | Layout |
+/// |---------|-----|---------|--------|----------|--------|
+/// | Short   | 2   | (0-3) +0 | (3-10) +3 | (1-1023) +1 | `0PPL-LLBB:PPPP-PPPP` |
+/// | Medium  | 3   | (0-3) +0 | (4-67) +4 | (1-16383) +1 | `10LL-LLLL:BBPP-PPPP:PPPP-PPPP` |
+/// | Long    | 4   | (0-3) +0 | (5-1028) +5 | (1-131072) +1 | `110P-LLBB:PPPP-PPPP:PPPP-PPPP:LLLL-LLLL` |
+/// | Literal | 1   | (4-112) +4 | 0 | 0 | `111B-BBBB` |
+/// | Stop    | 1   | (0-3) +0 | 0 | 0 | `1111-11PP` |
+///
+/// ### Extra Note on Literal Commands
+///
+/// Literal is a special command thats values are encoded differently.
+/// Due to that other commands can store up to 3 literal bytes, you can encode any sequence of literal
+/// bytes by writing a multiple of 4 bytes via a literal command and then split off the remainder
+/// in to the next copy command.
+/// This means that literal commands actually only _need_ to encode multiples of 4. As a result,
+/// literal commands first shift their literal length to the right by 2, making the range of 4-112
+/// stored in the space of 0-27, only 5 bits for close to what you would ordinarily get from 7.
+///
+/// Clever, huh?
+///
+/// One extra unusual detail is that despite that it seems like the cap from the bitshift should be 128,
+/// in practice it's limited to 112. The way the original reference implementation worked was to
+/// read the huffman encoded headers via just checking if the first byte read with within certain
+/// decimal ranges. `refpack` implements this similarly for maximum compatibility. If the first byte
+/// read is within `252..=255`, it's interpreted as a stopcode. The highest allowed values of 112
+/// is encoded as `0b1111_1011` which is `251` exactly. Any higher of a value would start seeping
+/// in to the stopcode range.
 pub struct Reference;
 
-/// Standard read implementation of long codes. See [Standard] for specification
+/// Reference read implementation of long codes. See [Reference] for specification
 ///
 /// # Errors
-/// Returns `std::io::Error` if it fails to get the remaining one byte from the `reader`.
+/// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining one byte from the `reader`.
 #[inline]
 pub fn read_short(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
     let byte1 = first as usize;
@@ -116,10 +94,10 @@ pub fn read_short(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<C
     })
 }
 
-/// Standard read implementation of medium codes. See [Standard] for specification
+/// Reference read implementation of medium copy commands. See [Reference] for specification
 ///
 /// # Errors
-/// Returns `std::io::Error` if it fails to get the remaining two bytes from the `reader`.
+/// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining two bytes from the `reader`.
 #[inline]
 pub fn read_medium(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
     let byte1: usize = first as usize;
@@ -137,10 +115,10 @@ pub fn read_medium(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<
     })
 }
 
-/// Standard read implementation of long codes. See [Standard] for specification
+/// Reference read implementation of long copy commands. See [Reference] for specification
 ///
 /// # Errors
-/// Returns `std::io::Error` if it fails to get the remaining three bytes from the `reader`.
+/// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining three bytes from the `reader`.
 #[inline]
 pub fn read_long(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
     let byte1: usize = first as usize;
@@ -160,20 +138,23 @@ pub fn read_long(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Co
     })
 }
 
-/// Standard read implementation of literals. See [Standard] for specification
+/// Reference read implementation of literal commands. See [Reference] for specification
 #[inline]
 #[must_use]
 pub fn read_literal(first: u8) -> Command {
     Command::Literal(((first & 0b0001_1111) << 2) + 4)
 }
 
-/// Standard read implementation of stopcodes. See [Standard] for specification
+/// Reference read implementation of stopcodes. See [Reference] for specification
 #[inline]
 #[must_use]
 pub fn read_stop(first: u8) -> Command {
     Command::Stop(first & 0b0000_0011)
 }
 
+/// Reference write implementation of short codes. See [Reference] for specification
+/// # Errors
+/// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write to the writer stream
 #[inline]
 pub fn write_short(
     offset: u16,

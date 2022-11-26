@@ -60,13 +60,7 @@ mod error;
 pub mod format;
 pub mod header;
 
-use data::control::{MAX_LITERAL_LEN, MAX_OFFSET_DISTANCE};
-
 pub use crate::error::{Error as RefPackError, Result as RefPackResult};
-
-pub const MAX_WINDOW_SIZE: u32 = MAX_OFFSET_DISTANCE as u32;
-pub const HEADER_LEN: u32 = 9;
-pub const MAX_LITERAL_BLOCK: u16 = MAX_LITERAL_LEN as u16;
 
 /*
 #[cfg(test)]

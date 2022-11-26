@@ -53,7 +53,7 @@ mod test {
     use test_strategy::proptest;
 
     use super::*;
-    use crate::data::control::mode::reference::Reference;
+    use crate::data::control::mode::Reference;
     use crate::data::control::{Command, Control};
 
     #[proptest]
