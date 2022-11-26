@@ -4,11 +4,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.                   /
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
-
-//! Organizational module for Simcity 4 Control Format.
-//! You should prefer to use the reexport in [mode](crate::data::control::mode) over this module directly.
-
-use std::hash::Hasher;
 use std::io::{Read, Seek, Write};
 
 use byteorder::{ReadBytesExt, WriteBytesExt};
@@ -74,167 +69,181 @@ use crate::RefPackResult;
 /// in to the stopcode range.
 pub struct Reference;
 
-/// Reference read implementation of long codes. See [Reference] for specification
-///
-/// # Errors
-/// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining one byte from the `reader`.
-#[inline]
-pub fn read_short(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
-    let byte1 = first as usize;
-    let byte2: usize = reader.read_u8()?.into();
+impl Reference {
+    /// Reference read implementation of long codes. See [Reference] for specification
+    ///
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining one byte from the `reader`.
+    #[inline]
+    pub fn read_short(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
+        let byte1 = first as usize;
+        let byte2: usize = reader.read_u8()?.into();
 
-    let offset = ((((byte1 & 0b0110_0000) << 3) | byte2) + 1) as u16;
-    let length = (((byte1 & 0b0001_1100) >> 2) + 3) as u8;
-    let literal = (byte1 & 0b0000_0011) as u8;
+        let offset = ((((byte1 & 0b0110_0000) << 3) | byte2) + 1) as u16;
+        let length = (((byte1 & 0b0001_1100) >> 2) + 3) as u8;
+        let literal = (byte1 & 0b0000_0011) as u8;
 
-    Ok(Command::Short {
-        offset,
-        length,
-        literal,
-    })
-}
+        Ok(Command::Short {
+            offset,
+            length,
+            literal,
+        })
+    }
 
-/// Reference read implementation of medium copy commands. See [Reference] for specification
-///
-/// # Errors
-/// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining two bytes from the `reader`.
-#[inline]
-pub fn read_medium(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
-    let byte1: usize = first as usize;
-    let byte2: usize = reader.read_u8()?.into();
-    let byte3: usize = reader.read_u8()?.into();
+    /// Reference read implementation of medium copy commands. See [Reference] for specification
+    ///
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining two bytes from the `reader`.
+    #[inline]
+    pub fn read_medium(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
+        let byte1: usize = first as usize;
+        let byte2: usize = reader.read_u8()?.into();
+        let byte3: usize = reader.read_u8()?.into();
 
-    let offset = ((((byte2 & 0b0011_1111) << 8) | byte3) + 1) as u16;
-    let length = ((byte1 & 0b0011_1111) + 4) as u8;
-    let literal = ((byte2 & 0b1100_0000) >> 6) as u8;
+        let offset = ((((byte2 & 0b0011_1111) << 8) | byte3) + 1) as u16;
+        let length = ((byte1 & 0b0011_1111) + 4) as u8;
+        let literal = ((byte2 & 0b1100_0000) >> 6) as u8;
 
-    Ok(Command::Medium {
-        offset,
-        length,
-        literal,
-    })
-}
+        Ok(Command::Medium {
+            offset,
+            length,
+            literal,
+        })
+    }
 
-/// Reference read implementation of long copy commands. See [Reference] for specification
-///
-/// # Errors
-/// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining three bytes from the `reader`.
-#[inline]
-pub fn read_long(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
-    let byte1: usize = first as usize;
-    let byte2: usize = reader.read_u8()?.into();
-    let byte3: usize = reader.read_u8()?.into();
-    let byte4: usize = reader.read_u8()?.into();
+    /// Reference read implementation of long copy commands. See [Reference] for specification
+    ///
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining three bytes from the `reader`.
+    #[inline]
+    pub fn read_long(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
+        let byte1: usize = first as usize;
+        let byte2: usize = reader.read_u8()?.into();
+        let byte3: usize = reader.read_u8()?.into();
+        let byte4: usize = reader.read_u8()?.into();
 
-    let offset = ((((byte1 & 0b0001_0000) << 12) | (byte2 << 8) | byte3) + 1) as u32;
-    let length = ((((byte1 & 0b0000_1100) << 6) | byte4) + 5) as u16;
+        let offset = ((((byte1 & 0b0001_0000) << 12) | (byte2 << 8) | byte3) + 1) as u32;
+        let length = ((((byte1 & 0b0000_1100) << 6) | byte4) + 5) as u16;
 
-    let literal = (byte1 & 0b0000_0011) as u8;
+        let literal = (byte1 & 0b0000_0011) as u8;
 
-    Ok(Command::Long {
-        offset,
-        length,
-        literal,
-    })
-}
+        Ok(Command::Long {
+            offset,
+            length,
+            literal,
+        })
+    }
 
-/// Reference read implementation of literal commands. See [Reference] for specification
-#[inline]
-#[must_use]
-pub fn read_literal(first: u8) -> Command {
-    Command::Literal(((first & 0b0001_1111) << 2) + 4)
-}
+    /// Reference read implementation of literal commands. See [Reference] for specification
+    #[inline]
+    #[must_use]
+    pub fn read_literal(first: u8) -> Command {
+        Command::Literal(((first & 0b0001_1111) << 2) + 4)
+    }
 
-/// Reference read implementation of stopcodes. See [Reference] for specification
-#[inline]
-#[must_use]
-pub fn read_stop(first: u8) -> Command {
-    Command::Stop(first & 0b0000_0011)
-}
+    /// Reference read implementation of stopcodes. See [Reference] for specification
+    #[inline]
+    #[must_use]
+    pub fn read_stop(first: u8) -> Command {
+        Command::Stop(first & 0b0000_0011)
+    }
 
-/// Reference write implementation of short codes. See [Reference] for specification
-/// # Errors
-/// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write to the writer stream
-#[inline]
-pub fn write_short(
-    offset: u16,
-    length: u8,
-    literal: u8,
-    writer: &mut (impl Write + Seek),
-) -> RefPackResult<()> {
-    let length_adjusted = length - 3;
-    let offset_adjusted = offset - 1;
+    /// Reference write implementation of short copy commands. See [Reference] for specification
+    /// # Errors
+    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write to the writer stream
+    #[inline]
+    pub fn write_short(
+        offset: u16,
+        length: u8,
+        literal: u8,
+        writer: &mut (impl Write + Seek),
+    ) -> RefPackResult<()> {
+        let length_adjusted = length - 3;
+        let offset_adjusted = offset - 1;
 
-    let first = (((offset_adjusted & 0b0000_0011_0000_0000) >> 3) as u8
-        | (length_adjusted & 0b0000_0111) << 2
-        | literal & 0b0000_0011) as u8;
-    let second = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
+        let first = (((offset_adjusted & 0b0000_0011_0000_0000) >> 3) as u8
+            | (length_adjusted & 0b0000_0111) << 2
+            | literal & 0b0000_0011) as u8;
+        let second = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
 
-    writer.write_u8(first)?;
-    writer.write_u8(second)?;
-    Ok(())
-}
+        writer.write_u8(first)?;
+        writer.write_u8(second)?;
+        Ok(())
+    }
 
-#[inline]
-pub fn write_medium(
-    offset: u16,
-    length: u8,
-    literal: u8,
-    writer: &mut (impl Write + Seek),
-) -> RefPackResult<()> {
-    let length_adjusted = length - 4;
-    let offset_adjusted = offset - 1;
+    /// Reference write implementation of medium copy commands. See [Reference] for specification
+    /// # Errors
+    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write to the writer stream
+    #[inline]
+    pub fn write_medium(
+        offset: u16,
+        length: u8,
+        literal: u8,
+        writer: &mut (impl Write + Seek),
+    ) -> RefPackResult<()> {
+        let length_adjusted = length - 4;
+        let offset_adjusted = offset - 1;
 
-    let first = 0b1000_0000 | length_adjusted & 0b0011_1111;
-    let second = (literal & 0b0000_0011) << 6 | (offset_adjusted >> 8) as u8;
-    let third = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
+        let first = 0b1000_0000 | length_adjusted & 0b0011_1111;
+        let second = (literal & 0b0000_0011) << 6 | (offset_adjusted >> 8) as u8;
+        let third = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
 
-    writer.write_u8(first)?;
-    writer.write_u8(second)?;
-    writer.write_u8(third)?;
+        writer.write_u8(first)?;
+        writer.write_u8(second)?;
+        writer.write_u8(third)?;
 
-    Ok(())
-}
+        Ok(())
+    }
 
-#[inline]
-pub fn write_long(
-    offset: u32,
-    length: u16,
-    literal: u8,
-    writer: &mut (impl Write + Seek),
-) -> RefPackResult<()> {
-    let length_adjusted = length - 5;
-    let offset_adjusted = offset - 1;
+    /// Reference write implementation of long copy commands. See [Reference] for specification
+    /// # Errors
+    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write to the writer stream
+    #[inline]
+    pub fn write_long(
+        offset: u32,
+        length: u16,
+        literal: u8,
+        writer: &mut (impl Write + Seek),
+    ) -> RefPackResult<()> {
+        let length_adjusted = length - 5;
+        let offset_adjusted = offset - 1;
 
-    let first = 0b1100_0000u8
-        | ((offset_adjusted >> 12) & 0b0001_0000) as u8
-        | ((length_adjusted >> 6) & 0b0000_1100) as u8
-        | literal & 0b0000_0011;
-    let second = ((offset_adjusted >> 8) & 0b1111_1111) as u8;
-    let third = (offset_adjusted & 0b1111_1111) as u8;
-    let fourth = (length_adjusted & 0b1111_1111) as u8;
+        let first = 0b1100_0000u8
+            | ((offset_adjusted >> 12) & 0b0001_0000) as u8
+            | ((length_adjusted >> 6) & 0b0000_1100) as u8
+            | literal & 0b0000_0011;
+        let second = ((offset_adjusted >> 8) & 0b1111_1111) as u8;
+        let third = (offset_adjusted & 0b1111_1111) as u8;
+        let fourth = (length_adjusted & 0b1111_1111) as u8;
 
-    writer.write_u8(first)?;
-    writer.write_u8(second)?;
-    writer.write_u8(third)?;
-    writer.write_u8(fourth)?;
+        writer.write_u8(first)?;
+        writer.write_u8(second)?;
+        writer.write_u8(third)?;
+        writer.write_u8(fourth)?;
 
-    Ok(())
-}
+        Ok(())
+    }
 
-#[inline]
-pub fn write_literal(literal: u8, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
-    let adjusted = (literal - 4) >> 2;
-    let out = 0b1110_0000 | (adjusted & 0b0001_1111);
-    writer.write_u8(out)?;
-    Ok(())
-}
+    /// Reference write implementation of literal commands. See [Reference] for specification
+    /// # Errors
+    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write to the writer stream
+    #[inline]
+    pub fn write_literal(literal: u8, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
+        let adjusted = (literal - 4) >> 2;
+        let out = 0b1110_0000 | (adjusted & 0b0001_1111);
+        writer.write_u8(out)?;
+        Ok(())
+    }
 
-#[inline]
-pub fn write_stop(number: u8, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
-    let out = 0b1111_1100 | (number & 0b0000_0011);
-    writer.write_u8(out)?;
-    Ok(())
+    /// Reference write implementation of stopcode. See [Reference] for specification
+    /// # Errors
+    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write to the writer stream
+    #[inline]
+    pub fn write_stop(number: u8, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
+        let out = 0b1111_1100 | (number & 0b0000_0011);
+        writer.write_u8(out)?;
+        Ok(())
+    }
 }
 
 impl Mode for Reference {
@@ -242,11 +251,11 @@ impl Mode for Reference {
         let first = reader.read_u8()?;
 
         match first {
-            0x00..=0x7F => read_short(first, reader),
-            0x80..=0xBF => read_medium(first, reader),
-            0xC0..=0xDF => read_long(first, reader),
-            0xE0..=0xFB => Ok(read_literal(first)),
-            0xFC..=0xFF => Ok(read_stop(first)),
+            0x00..=0x7F => Reference::read_short(first, reader),
+            0x80..=0xBF => Reference::read_medium(first, reader),
+            0xC0..=0xDF => Reference::read_long(first, reader),
+            0xE0..=0xFB => Ok(Reference::read_literal(first)),
+            0xFC..=0xFF => Ok(Reference::read_stop(first)),
         }
     }
 
@@ -256,19 +265,19 @@ impl Mode for Reference {
                 offset,
                 length,
                 literal,
-            } => write_short(offset, length, literal, writer),
+            } => Reference::write_short(offset, length, literal, writer),
             Command::Medium {
                 offset,
                 length,
                 literal,
-            } => write_medium(offset, length, literal, writer),
+            } => Reference::write_medium(offset, length, literal, writer),
             Command::Long {
                 offset,
                 length,
                 literal,
-            } => write_long(offset, length, literal, writer),
-            Command::Literal(literal) => write_literal(literal, writer),
-            Command::Stop(literal) => write_stop(literal, writer),
+            } => Reference::write_long(offset, length, literal, writer),
+            Command::Literal(literal) => Reference::write_literal(literal, writer),
+            Command::Stop(literal) => Reference::write_stop(literal, writer),
         }
     }
 }

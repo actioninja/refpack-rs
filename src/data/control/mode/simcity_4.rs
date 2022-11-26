@@ -9,10 +9,7 @@ use std::io::{Read, Seek, Write};
 
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
-use crate::data::control::mode::reference::{
-    read_literal, read_medium, read_short, read_stop, write_literal, write_medium, write_short,
-    write_stop,
-};
+use crate::data::control::mode::reference::Reference;
 use crate::data::control::mode::Mode;
 use crate::data::control::Command;
 use crate::RefPackError;
@@ -39,8 +36,8 @@ impl Mode for Simcity4 {
         let first = reader.read_u8()?;
 
         match first {
-            0x00..=0x7F => read_short(first, reader),
-            0x80..=0xBF => read_medium(first, reader),
+            0x00..=0x7F => Reference::read_short(first, reader),
+            0x80..=0xBF => Reference::read_medium(first, reader),
             0xC0..=0xDF => {
                 let second = reader.read_u8()?;
                 let third = reader.read_u8()?;
@@ -55,8 +52,8 @@ impl Mode for Simcity4 {
                     literal,
                 })
             }
-            0xE0..=0xFB => Ok(read_literal(first)),
-            0xFC..=0xFF => Ok(read_stop(first)),
+            0xE0..=0xFB => Ok(Reference::read_literal(first)),
+            0xFC..=0xFF => Ok(Reference::read_stop(first)),
         }
     }
 
@@ -66,12 +63,12 @@ impl Mode for Simcity4 {
                 offset,
                 length,
                 literal,
-            } => write_short(offset, length, literal, writer),
+            } => Reference::write_short(offset, length, literal, writer),
             Command::Medium {
                 offset,
                 length,
                 literal,
-            } => write_medium(offset, length, literal, writer),
+            } => Reference::write_medium(offset, length, literal, writer),
             Command::Long {
                 offset,
                 length,
@@ -92,8 +89,8 @@ impl Mode for Simcity4 {
                 writer.write_u8(fourth)?;
                 Ok(())
             }
-            Command::Literal(literal) => write_literal(literal, writer),
-            Command::Stop(literal) => write_stop(literal, writer),
+            Command::Literal(literal) => Reference::write_literal(literal, writer),
+            Command::Stop(literal) => Reference::write_stop(literal, writer),
         }
     }
 }
