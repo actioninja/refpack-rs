@@ -5,6 +5,9 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+//! Module for things relating to the header of the data which include decompressed length,
+//! sometimes flags or a magic number, and sometimes compressed length.
+
 use std::io::{Read, Seek, Write};
 
 #[cfg(test)]
@@ -19,6 +22,8 @@ pub mod mode;
 /// There seems to be some debate as to whether this is intended to be `0xFB10` and the number is
 /// stored in Little Endian, but this is an encoding difference and I decided to keep it as the
 /// literal stream sequence
+///
+/// Some implementations seem to use these two bytes as a flags field
 pub const MAGIC: u16 = 0x10FB;
 
 /// Internal struct to represent a decoded header

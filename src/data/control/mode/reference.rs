@@ -8,7 +8,7 @@ use std::io::{Read, Seek, Write};
 
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
-use crate::data::control::mode::Mode;
+use crate::data::control::mode::{Mode, Sizes};
 use crate::data::control::Command;
 use crate::RefPackResult;
 
@@ -50,7 +50,7 @@ use crate::RefPackResult;
 ///
 /// ### Extra Note on Literal Commands
 ///
-/// Literal is a special command thats values are encoded differently.
+/// Literal is a special command that has differently encoded values.
 /// Due to that other commands can store up to 3 literal bytes, you can encode any sequence of literal
 /// bytes by writing a multiple of 4 bytes via a literal command and then split off the remainder
 /// in to the next copy command.
@@ -247,6 +247,17 @@ impl Reference {
 }
 
 impl Mode for Reference {
+    const SIZES: Sizes = Sizes {
+        literal: (4, 112),
+        copy_literal: (0, 3),
+        short_offset: (1, 1_023),
+        short_length: (3, 10),
+        medium_offset: (1, 16_838),
+        medium_length: (4, 67),
+        long_offset: (1, 131_072),
+        long_length: (5, 1028),
+    };
+
     fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Command> {
         let first = reader.read_u8()?;
 

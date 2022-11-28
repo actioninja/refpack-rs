@@ -10,7 +10,7 @@ use std::io::{Read, Seek, Write};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
 use crate::data::control::mode::reference::Reference;
-use crate::data::control::mode::Mode;
+use crate::data::control::mode::{Mode, Sizes};
 use crate::data::control::Command;
 use crate::RefPackError;
 
@@ -32,6 +32,17 @@ use crate::RefPackError;
 pub struct Simcity4;
 
 impl Mode for Simcity4 {
+    const SIZES: Sizes = Sizes {
+        literal: Reference::SIZES.literal,
+        copy_literal: Reference::SIZES.copy_literal,
+        short_offset: Reference::SIZES.short_offset,
+        short_length: Reference::SIZES.short_length,
+        medium_offset: Reference::SIZES.medium_offset,
+        medium_length: Reference::SIZES.medium_length,
+        long_offset: (0, 65535),
+        long_length: Reference::SIZES.long_length,
+    };
+
     fn read<R: Read + Seek>(reader: &mut R) -> Result<Command, RefPackError> {
         let first = reader.read_u8()?;
 

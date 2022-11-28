@@ -9,18 +9,12 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
-use crate::data::control;
-use crate::data::control::{
-    Command, Control, MAX_COPY_MEDIUM_OFFSET, MAX_COPY_SHORT_OFFSET, MAX_LITERAL_LEN,
-    MAX_OFFSET_DISTANCE, MIN_COPY_LONG_LEN, MIN_COPY_MEDIUM_LEN, MIN_COPY_OFFSET,
-};
+use crate::data::control::mode::Sizes;
+use crate::data::control::{Command, Control, Mode};
 use crate::format::Format;
-use crate::header::mode::Mode;
+use crate::header::mode::Mode as HeaderMode;
 use crate::header::Header;
 use crate::{RefPackError, RefPackResult};
-
-pub const MAX_WINDOW_SIZE: u32 = MAX_OFFSET_DISTANCE as u32;
-pub const MAX_LITERAL_BLOCK: u16 = MAX_LITERAL_LEN as u16;
 
 //Optimization trick from libflate_lz77
 //Faster lookups for very large tables
@@ -31,8 +25,8 @@ enum PrefixTable {
 }
 
 impl PrefixTable {
-    fn new(bytes: usize) -> Self {
-        if bytes < MAX_WINDOW_SIZE as usize {
+    fn new<M: Mode>(bytes: usize) -> Self {
+        if bytes < M::SIZES.long_offset_max() as usize {
             PrefixTable::Small(HashMap::new())
         } else {
             PrefixTable::Large(LargePrefixTable::new())
@@ -84,18 +78,20 @@ fn prefix(input_buf: &[u8]) -> [u8; 3] {
 }
 
 /// Reads from an incoming `Read` reader and compresses and encodes to `Vec<Control>`
-pub(crate) fn encode_stream(
+pub(crate) fn encode_stream<F: Format>(
     reader: &mut (impl Read + Seek),
     length: usize,
 ) -> Result<Vec<Control>, RefPackError> {
+    let sizes = F::ControlMode::SIZES;
+
     let mut in_buffer = vec![0_u8; length];
     reader.read_exact(&mut in_buffer)?;
     let mut controls: Vec<Control> = vec![];
-    let mut prefix_table = PrefixTable::new(in_buffer.len());
+    let mut prefix_table = PrefixTable::new::<F::ControlMode>(in_buffer.len());
 
     let mut i = 0;
     let end = max(3, in_buffer.len()) - 3;
-    let mut literal_block: Vec<u8> = Vec::with_capacity(MAX_LITERAL_BLOCK as usize);
+    let mut literal_block: Vec<u8> = Vec::with_capacity(sizes.literal_max() as usize);
     while i < end {
         let key = prefix(&in_buffer[i..]);
 
@@ -104,22 +100,25 @@ pub(crate) fn encode_stream(
 
         let pair = matched.map(|x| x as usize).and_then(|matched| {
             let distance = i - matched;
-            if distance > MAX_OFFSET_DISTANCE || distance < MIN_COPY_OFFSET as usize {
+            if distance > sizes.long_offset_max() as usize
+                || distance < sizes.short_offset_min() as usize
+            {
                 None
             } else {
                 // find the longest common prefix
+                let max_copy_len = sizes.long_length_max() as usize;
                 let match_length = in_buffer[i..]
                     .iter()
-                    .take(control::MAX_COPY_LEN - 3)
+                    .take(max_copy_len - 3)
                     .zip(&in_buffer[matched..])
                     .take_while(|(a, b)| a == b)
                     .count();
 
                 // Insufficient similarity for given distance, reject
-                if (match_length <= MIN_COPY_MEDIUM_LEN as usize
-                    && distance > MAX_COPY_SHORT_OFFSET as usize)
-                    || (match_length <= MIN_COPY_LONG_LEN as usize
-                        && distance > MAX_COPY_MEDIUM_OFFSET as usize)
+                if (match_length <= sizes.medium_length_min() as usize
+                    && distance > sizes.short_offset_max() as usize)
+                    || (match_length <= sizes.long_length_min() as usize
+                        && distance > sizes.medium_offset_max() as usize)
                 {
                     None
                 } else {
@@ -131,19 +130,21 @@ pub(crate) fn encode_stream(
         if let Some((found, match_length)) = pair {
             let distance = i - found;
 
-            // If the current literal block is longer than 3 we need to split the block
-            if literal_block.len() > 3 {
+            // If the current literal block is longer than the copy limit we need to split the block
+            if literal_block.len() > sizes.copy_literal_max() as usize {
                 let split_point: usize = literal_block.len() - (literal_block.len() % 4);
-                controls.push(Control::new_literal_block(&literal_block[..split_point]));
+                controls.push(Control::new_literal_block::<F::ControlMode>(
+                    &literal_block[..split_point],
+                ));
                 let second_block = &literal_block[split_point..];
                 controls.push(Control::new(
-                    Command::new(distance, match_length, second_block.len()),
+                    Command::new::<F::ControlMode>(distance, match_length, second_block.len()),
                     second_block.to_vec(),
                 ));
             } else {
                 // If it's not, just push a new block directly
                 controls.push(Control::new(
-                    Command::new(distance, match_length, literal_block.len()),
+                    Command::new::<F::ControlMode>(distance, match_length, literal_block.len()),
                     literal_block.clone(),
                 ));
             }
@@ -160,8 +161,9 @@ pub(crate) fn encode_stream(
         } else {
             literal_block.push(in_buffer[i]);
             i += 1;
-            if literal_block.len() >= (MAX_LITERAL_BLOCK as usize) {
-                controls.push(Control::new_literal_block(&literal_block));
+            // If it's reached the limit, push the block immediately and clear the running block
+            if literal_block.len() >= (sizes.literal_max() as usize) {
+                controls.push(Control::new_literal_block::<F::ControlMode>(&literal_block));
                 literal_block.clear();
             }
         }
@@ -173,10 +175,14 @@ pub(crate) fn encode_stream(
     //Extremely similar to block up above, but with a different control type
     if literal_block.len() > 3 {
         let split_point: usize = literal_block.len() - (literal_block.len() % 4);
-        controls.push(Control::new_literal_block(&literal_block[..split_point]));
-        controls.push(Control::new_stop(&literal_block[split_point..]));
+        controls.push(Control::new_literal_block::<F::ControlMode>(
+            &literal_block[..split_point],
+        ));
+        controls.push(Control::new_stop::<F::ControlMode>(
+            &literal_block[split_point..],
+        ));
     } else {
-        controls.push(Control::new_stop(&literal_block));
+        controls.push(Control::new_stop::<F::ControlMode>(&literal_block));
     }
 
     Ok(controls)
@@ -206,7 +212,7 @@ pub(crate) fn encode_stream(
 ///
 /// Will return `Error::Io` if there is an IO error
 /// Will return `Error::EmptyInput` if the length provided is 0
-fn compress<F: Format>(
+pub fn compress<F: Format>(
     length: usize,
     reader: &mut (impl Read + Seek),
     writer: &mut (impl Write + Seek),
@@ -215,7 +221,7 @@ fn compress<F: Format>(
         return Err(RefPackError::EmptyInput);
     }
 
-    let controls = encode_stream(reader, length)?;
+    let controls = encode_stream::<F>(reader, length)?;
 
     let header_length = F::HeaderMode::LENGTH;
 

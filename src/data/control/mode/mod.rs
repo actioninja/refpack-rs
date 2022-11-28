@@ -16,8 +16,140 @@ pub use simcity_4::Simcity4;
 use crate::data::control::Command;
 use crate::RefPackResult;
 
+/// Represents limits of values
+///
+/// All values are gotten through accessors to improve readability at usage site, while making the
+/// definition site clearer by allowing directly defining the struct
+///
+/// All accessors are `const`
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Sizes {
-    position: (usize, usize),
+    literal: (u8, u8),
+    copy_literal: (u8, u8),
+    short_offset: (u16, u16),
+    short_length: (u8, u8),
+    medium_offset: (u16, u16),
+    medium_length: (u8, u8),
+    long_offset: (u32, u32),
+    long_length: (u16, u16),
+}
+
+impl Sizes {
+    /// minimum value of the literal length in a literal command
+    #[must_use]
+    pub const fn literal_min(self) -> u8 {
+        self.literal.0
+    }
+
+    /// maximum value of the literal length in a literal command
+    #[must_use]
+    pub const fn literal_max(self) -> u8 {
+        self.literal.1
+    }
+
+    /// minimum value of the literal length in a non-literal command
+    #[must_use]
+    pub const fn copy_literal_min(self) -> u8 {
+        self.copy_literal.0
+    }
+
+    /// maximum value of the literal length in a non-literal command
+    #[must_use]
+    pub const fn copy_literal_max(self) -> u8 {
+        self.copy_literal.1
+    }
+
+    /// minimum offset distance for a short command
+    #[must_use]
+    pub const fn short_offset_min(self) -> u16 {
+        self.short_offset.0
+    }
+
+    /// maximum offset distance for a short command
+    #[must_use]
+    pub const fn short_offset_max(self) -> u16 {
+        self.short_offset.1
+    }
+
+    /// minimum length for a short command
+    #[must_use]
+    pub const fn short_length_min(self) -> u8 {
+        self.short_length.0
+    }
+
+    /// maximum length for a short command
+    #[must_use]
+    pub const fn short_length_max(self) -> u8 {
+        self.short_length.1
+    }
+
+    /// minimum offset distance for a medium command
+    #[must_use]
+    pub const fn medium_offset_min(self) -> u16 {
+        self.medium_offset.0
+    }
+
+    /// maximum offset distance for a medium command
+    #[must_use]
+    pub const fn medium_offset_max(self) -> u16 {
+        self.medium_offset.1
+    }
+
+    /// minimum length for a medium command
+    #[must_use]
+    pub const fn medium_length_min(self) -> u8 {
+        self.medium_length.0
+    }
+
+    /// maximum length for a medium command
+    #[must_use]
+    pub const fn medium_length_max(self) -> u8 {
+        self.medium_length.1
+    }
+
+    /// minimum offset distance for a long command
+    #[must_use]
+    pub const fn long_offset_min(self) -> u32 {
+        self.long_offset.0
+    }
+
+    /// maximum offset distance for a long command
+    #[must_use]
+    pub const fn long_offset_max(self) -> u32 {
+        self.long_offset.1
+    }
+
+    /// minimum length for a long command
+    #[must_use]
+    pub const fn long_length_min(self) -> u16 {
+        self.long_length.0
+    }
+
+    /// maximum length for a long command
+    #[must_use]
+    pub const fn long_length_max(self) -> u16 {
+        self.long_length.1
+    }
+
+    /// "Real" minimum of literal value in a literal command once encoded
+    ///
+    /// Literal commands encode their value in a a special limit precision format
+    ///
+    /// See [Reference](crate::data::control::mode::Reference) for a more detailed writeup on this
+    #[must_use]
+    pub const fn literal_effective_min(self) -> u8 {
+        (self.literal.0 - 4) / 4
+    }
+
+    /// "Real" maximum of literal value in a literal command once encoded
+    ///
+    /// Literal commands encode their value in a a special limit precision format
+    ///
+    /// See [Reference](crate::data::control::mode::Reference) for a more detailed writeup on this
+    #[must_use]
+    pub const fn literal_effective_max(self) -> u8 {
+        (self.literal.1 - 4) / 4
+    }
 }
 
 /// Represents an encoding/decoding format for compression commands. TODO: Explanation of how this is a marker trait for static dispatch functions
@@ -38,11 +170,17 @@ pub struct Sizes {
 /// - `:`: Byte Separator
 /// To implement your own commands, do something TODO
 pub trait Mode {
+    const SIZES: Sizes;
+
     /// Reads from a `Read + Seek` reader and attempts to parse a command at the current position.
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
     /// attempting to read data
     fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Command>;
+    /// Writes to a `Write + Seek` writer and attempts to encode a command at the current position.
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
+    /// attempting to read data
     fn write<W: Write + Seek>(command: Command, writer: &mut W) -> RefPackResult<()>;
 }
 

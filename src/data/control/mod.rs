@@ -5,6 +5,8 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+//! Module for control codes utilized by compression and decompression
+
 pub(crate) mod iterator;
 pub mod mode;
 
@@ -14,62 +16,40 @@ use std::io::{Read, Seek, Write};
 use proptest::collection::{size_range, vec};
 #[cfg(test)]
 use proptest::prelude::*;
-#[cfg(test)]
-use test_strategy::Arbitrary;
 
 pub use crate::data::control::mode::Mode;
-use crate::RefPackError;
+use crate::{RefPackError, RefPackResult};
 
-pub const MAX_COPY_SHORT_OFFSET: u16 = 1_023;
-pub const MAX_COPY_SHORT_LEN: u8 = 10;
-#[allow(dead_code)] //Clippy is shitting the bed here, this is actually used
-pub const MIN_COPY_SHORT_LEN: u8 = 3;
-
-pub const MAX_COPY_MEDIUM_OFFSET: u16 = 16_383;
-pub const MAX_COPY_MEDIUM_LEN: u8 = 67;
-pub const MIN_COPY_MEDIUM_LEN: u8 = 4;
-
-pub const MAX_COPY_LONG_OFFSET: u32 = 131_072;
-pub const MAX_COPY_LONG_LEN: u16 = 1_028;
-pub const MIN_COPY_LONG_LEN: u16 = 5;
-
-pub const MIN_COPY_OFFSET: u32 = 1;
-pub const MAX_COPY_LIT_LEN: u8 = 3;
-
-pub const MAX_OFFSET_DISTANCE: usize = MAX_COPY_LONG_OFFSET as usize;
-pub const MAX_COPY_LEN: usize = MAX_COPY_LONG_LEN as usize;
-
-pub const MAX_LITERAL_LEN: usize = 112;
-
+/// The part of
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(test, derive(Arbitrary))]
 pub enum Command {
+    /// Represents a two byte copy command
     Short {
-        #[cfg_attr(test, strategy((MIN_COPY_OFFSET as u16)..=MAX_COPY_SHORT_OFFSET))]
         offset: u16,
-        #[cfg_attr(test, strategy(MIN_COPY_SHORT_LEN..=MAX_COPY_SHORT_LEN))]
         length: u8,
-        #[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))]
         literal: u8,
     },
+    /// Represents a three byte copy command
     Medium {
-        #[cfg_attr(test, strategy((MIN_COPY_OFFSET as u16)..=MAX_COPY_MEDIUM_OFFSET))]
         offset: u16,
-        #[cfg_attr(test, strategy(MIN_COPY_MEDIUM_LEN..=MAX_COPY_MEDIUM_LEN))]
         length: u8,
-        #[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))]
         literal: u8,
     },
+    /// Represents a four byte copy command
     Long {
-        #[cfg_attr(test, strategy(MIN_COPY_OFFSET..=MAX_COPY_LONG_OFFSET))]
         offset: u32,
-        #[cfg_attr(test, strategy(MIN_COPY_LONG_LEN..=MAX_COPY_LONG_LEN))]
         length: u16,
-        #[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))]
         literal: u8,
     },
-    Literal(#[cfg_attr(test, strategy((0..=27_u8).prop_map(|x| (x * 4) + 4)))] u8),
-    Stop(#[cfg_attr(test, strategy(0..=MAX_COPY_LIT_LEN))] u8),
+    /// Represents exclusively writing literal bytes from the stream
+    ///
+    /// u8: number of literal bytes following the command to write to the stream
+    Literal(u8),
+    /// Represents an end of stream, when this command is encountered during decompression it's
+    /// evaluated and then decompression halts
+    ///
+    /// u8: Number of literal bytes to write to the stream before ending decompression
+    Stop(u8),
 }
 
 impl Command {
@@ -77,29 +57,48 @@ impl Command {
     /// # Panics
     /// Panics if you attempt to create an invalid Command in some way
     #[must_use]
-    pub fn new(offset: usize, length: usize, literal: usize) -> Self {
+    pub fn new<M: Mode>(offset: usize, length: usize, literal: usize) -> Self {
         assert!(
-            literal <= MAX_COPY_LIT_LEN as usize,
-            "Literal length must be less than or equal to 3 for commands (got {literal})"
+            literal <= M::SIZES.copy_literal_max() as usize,
+            "Literal length must be less than or equal to {} for commands ({})",
+            M::SIZES.copy_literal_max(),
+            literal
         );
 
-        if offset > MAX_OFFSET_DISTANCE || length > MAX_COPY_LEN {
-            panic!("Invalid offset or length (Maximum offset 131072, got {offset}) (Maximum length 1028, got {length})");
-        } else if offset > MAX_COPY_MEDIUM_OFFSET as usize || length > MAX_COPY_MEDIUM_LEN as usize
+        if offset > M::SIZES.long_offset_min() as usize
+            || length > M::SIZES.long_offset_max() as usize
+        {
+            panic!(
+                "Invalid offset or length (Maximum offset {}, got {}) (Maximum length {}, got {})",
+                M::SIZES.long_offset_max(),
+                offset,
+                M::SIZES.long_length_max(),
+                length
+            );
+        } else if offset > M::SIZES.medium_offset_min() as usize
+            || length > M::SIZES.medium_offset_max() as usize
         {
             assert!(
-                length >= MIN_COPY_LONG_LEN as usize,
-                "Length must be greater than or equal to 5 for long commands (Length: {length}) (Offset: {offset})"
+                length >= M::SIZES.long_length_min() as usize,
+                "Length must be greater than or equal to {} for long commands (Length: {}) (Offset: {})",
+                M::SIZES.long_length_min(),
+                length,
+                offset
             );
             Self::Long {
                 offset: offset as u32,
                 length: length as u16,
                 literal: literal as u8,
             }
-        } else if offset > MAX_COPY_SHORT_OFFSET as usize || length > MAX_COPY_SHORT_LEN as usize {
+        } else if offset > M::SIZES.short_offset_min() as usize
+            || length > M::SIZES.short_length_min() as usize
+        {
             assert!(
-                length >= MIN_COPY_MEDIUM_LEN as usize,
-                "Length must be greater than or equal to 4 for medium commands (Length: {length}) (Offset: {offset})"
+                length >= M::SIZES.medium_length_min() as usize,
+                "Length must be greater than or equal to {} for medium commands (Length: {}) (Offset: {})",
+                M::SIZES.medium_length_min(),
+                length,
+                offset
             );
             Self::Medium {
                 offset: offset as u16,
@@ -117,24 +116,29 @@ impl Command {
 
     /// Creates a new literal command block
     /// # Panics
-    /// Panics if you attempt to create too long of a literal command (> 112)
+    /// Panics if you attempt to create too long of a literal command. This depends on control mode
+    /// used.
     #[must_use]
-    pub fn new_literal(length: usize) -> Self {
+    pub fn new_literal<M: Mode>(length: usize) -> Self {
         assert!(
-            length <= 112,
-            "Literal received too long of a literal length (max 112, got {length})"
+            length <= M::SIZES.literal_max() as usize,
+            "Literal received too long of a literal length (max {}, got {})",
+            M::SIZES.literal_max(),
+            length
         );
         Self::Literal(length as u8)
     }
 
     /// Creates a new stopcode command block
     /// # Panics
-    /// Panics if you attempt to create too long of a stop code (> 3)
+    /// Panics if you attempt to create too long of a stop code. This depends on control mode used.
     #[must_use]
-    pub fn new_stop(literal_length: usize) -> Self {
+    pub fn new_stop<M: Mode>(literal_length: usize) -> Self {
         assert!(
             literal_length <= 3,
-            "Stopcode recieved too long of a literal length (max 3, got {literal_length})"
+            "Stopcode recieved too long of a literal length (max {}, got {})",
+            M::SIZES.copy_literal_max(),
+            literal_length
         );
         Self::Stop(literal_length as u8)
     }
@@ -164,6 +168,9 @@ impl Command {
         }
     }
 
+    /// Get the offset and length of a copy command as a `(usize, usize)` tuple.
+    ///
+    /// Returns `None` if `self` is not a copy command.
     #[must_use]
     pub fn offset_copy(self) -> Option<(usize, usize)> {
         match self {
@@ -175,16 +182,18 @@ impl Command {
         }
     }
 
+    /// Returns true if the command is a stopcode, false if it is not.
     #[must_use]
     pub fn is_stop(self) -> bool {
         matches!(self, Command::Stop(_))
     }
 
-    pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> Result<Self, RefPackError> {
+    ///
+    pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> RefPackResult<Self> {
         M::read(reader)
     }
 
-    pub fn write<M: Mode>(self, writer: &mut (impl Write + Seek)) -> Result<(), RefPackError> {
+    pub fn write<M: Mode>(self, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
         M::write(self, writer)?;
         Ok(())
     }
@@ -201,33 +210,38 @@ prop_compose! {
     }
 }
 
-/// Full control block of command + literal bytes
+/// Full control block of command + literal bytes following it
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(test, derive(Arbitrary))]
 pub struct Control {
+    /// The command code
     pub command: Command,
-    #[cfg_attr(test, strategy(bytes_strategy(#command.num_of_literal().unwrap_or(0))))]
+    /// the literal bytes to write to the stream
     pub bytes: Vec<u8>,
 }
 
 impl Control {
+    /// Create a new Control given a command and bytes
     #[must_use]
     pub fn new(command: Command, bytes: Vec<u8>) -> Self {
         Self { command, bytes }
     }
 
+    /// Create a new literal block given a slice of bytes.
+    /// the `Command` is automatically generated from the length of the byte slice.
     #[must_use]
-    pub fn new_literal_block(bytes: &[u8]) -> Self {
+    pub fn new_literal_block<M: Mode>(bytes: &[u8]) -> Self {
         Self {
-            command: Command::new_literal(bytes.len()),
+            command: Command::new_literal::<M>(bytes.len()),
             bytes: bytes.to_vec(),
         }
     }
 
+    /// Create a new stop control block given a slice of bytes
+    /// the `Command` is automatically generated from the length of the byte slice.
     #[must_use]
-    pub fn new_stop(bytes: &[u8]) -> Self {
+    pub fn new_stop<M: Mode>(bytes: &[u8]) -> Self {
         Self {
-            command: Command::new_stop(bytes.len()),
+            command: Command::new_stop::<M>(bytes.len()),
             bytes: bytes.to_vec(),
         }
     }
@@ -250,15 +264,113 @@ impl Control {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::io::{Cursor, SeekFrom};
 
-    use proptest::prop_assert_eq;
+    use proptest::prelude::*;
     use test_strategy::proptest;
 
     use super::*;
-    use crate::data::control::iterator::Iter;
     use crate::data::control::mode::Reference;
+
+    pub fn generate_random_valid_command<M: Mode>() -> BoxedStrategy<Command> {
+        let sizes = M::SIZES;
+        let short_copy_strat = (
+            sizes.short_offset_min()..=sizes.short_offset_max(),
+            sizes.short_length_min()..=sizes.short_length_max(),
+            sizes.copy_literal_min()..=sizes.copy_literal_max(),
+        )
+            .prop_map(|(offset, length, literal)| Command::Short {
+                offset,
+                length,
+                literal,
+            });
+
+        let medium_copy_strat = (
+            sizes.medium_offset_min()..=sizes.medium_offset_max(),
+            sizes.medium_length_min()..=sizes.medium_length_max(),
+            sizes.copy_literal_min()..=sizes.copy_literal_max(),
+        )
+            .prop_map(|(offset, length, literal)| Command::Medium {
+                offset,
+                length,
+                literal,
+            });
+
+        let long_copy_strat = (
+            sizes.long_offset_min()..=sizes.long_offset_max(),
+            sizes.long_length_min()..=sizes.long_length_max(),
+            sizes.copy_literal_min()..=sizes.copy_literal_max(),
+        )
+            .prop_map(|(offset, length, literal)| Command::Long {
+                offset,
+                length,
+                literal,
+            });
+
+        let literal_strat = sizes.literal_effective_min()..=sizes.literal_effective_max();
+        let literal =
+            Strategy::prop_map(literal_strat, |literal| Command::Literal((literal * 4) + 4));
+        let strategy = prop_oneof![
+            short_copy_strat,
+            medium_copy_strat,
+            long_copy_strat,
+            literal
+        ]
+        .boxed();
+        strategy
+    }
+
+    pub fn generate_stopcode<M: Mode>() -> BoxedStrategy<Command> {
+        let sizes = M::SIZES;
+
+        (sizes.copy_literal_min()..=sizes.copy_literal_max())
+            .prop_map(|value| Command::Stop(value))
+            .boxed()
+    }
+
+    pub fn generate_control<M: Mode>() -> BoxedStrategy<Control> {
+        let sizes = M::SIZES;
+
+        generate_random_valid_command::<M>()
+            .prop_flat_map(|command| {
+                (
+                    Just(command),
+                    vec(any::<u8>(), command.num_of_literal().unwrap_or(0)),
+                )
+            })
+            .prop_map(|(command, bytes)| Control { command, bytes })
+            .boxed()
+    }
+
+    pub fn generate_stop_control<M: Mode>() -> BoxedStrategy<Control> {
+        let sizes = M::SIZES;
+
+        generate_stopcode::<M>()
+            .prop_flat_map(|command| {
+                (
+                    Just(command),
+                    vec(any::<u8>(), command.num_of_literal().unwrap_or(0)),
+                )
+            })
+            .prop_map(|(command, bytes)| Control { command, bytes })
+            .boxed()
+    }
+
+    pub fn generate_valid_control_sequence<M: Mode>(
+        max_length: usize,
+    ) -> BoxedStrategy<Vec<Control>> {
+        (
+            vec(generate_control::<M>(), 0..(max_length - 1)),
+            generate_stop_control::<M>(),
+        )
+            .prop_map(|(vec, stopcode)| {
+                let mut vec = vec;
+                vec.push(stopcode);
+                vec
+            })
+            .boxed()
+    }
 
     #[proptest]
     fn symmetrical_command_copy(
@@ -266,7 +378,7 @@ mod tests {
         #[strategy(5..=1028_usize)] length: usize,
         #[strategy(0..=3_usize)] literal: usize,
     ) {
-        let expected = Command::new(offset, length, literal);
+        let expected = Command::new::<Reference>(offset, length, literal);
         let mut buf = Cursor::new(vec![]);
         expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
@@ -279,7 +391,7 @@ mod tests {
     fn symmetrical_command_literal(#[strategy(0..=27_usize)] literal: usize) {
         let real_length = (literal * 4) + 4;
 
-        let expected = Command::new_literal(real_length);
+        let expected = Command::new_literal::<Reference>(real_length);
         let mut buf = Cursor::new(vec![]);
         expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
@@ -290,7 +402,7 @@ mod tests {
 
     #[proptest]
     fn symmetrical_command_stop(#[strategy(0..=3_usize)] input: usize) {
-        let expected = Command::new_stop(input);
+        let expected = Command::new_stop::<Reference>(input);
         let mut buf = Cursor::new(vec![]);
         expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
@@ -300,7 +412,9 @@ mod tests {
     }
 
     #[proptest]
-    fn symmetrical_any_command(input: Command) {
+    fn symmetrical_any_command(
+        #[strategy(generate_random_valid_command::<Reference>())] input: Command,
+    ) {
         let expected = input;
         let mut buf = Cursor::new(vec![]);
         expected.write::<Reference>(&mut buf).unwrap();
@@ -313,35 +427,35 @@ mod tests {
     #[test]
     #[should_panic]
     fn command_reject_new_stop_invalid() {
-        let _invalid = Command::new_stop(8000);
+        let _invalid = Command::new_stop::<Reference>(8000);
     }
 
     #[test]
     #[should_panic]
     fn command_reject_new_literal_invalid() {
-        let _invalid = Command::new_literal(8000);
+        let _invalid = Command::new_literal::<Reference>(8000);
     }
 
     #[test]
     #[should_panic]
     fn command_reject_new_invalid_high_offset() {
-        let _invalid = Command::new(500_000, 0, 0);
+        let _invalid = Command::new::<Reference>(500_000, 0, 0);
     }
 
     #[test]
     #[should_panic]
     fn command_reject_new_invalid_high_length() {
-        let _invalid = Command::new(0, 500_000, 0);
+        let _invalid = Command::new::<Reference>(0, 500_000, 0);
     }
 
     #[test]
     #[should_panic]
     fn command_reject_new_invalid_high_literal() {
-        let _invalid = Command::new(0, 0, 6000);
+        let _invalid = Command::new::<Reference>(0, 0, 6000);
     }
 
     #[proptest]
-    fn symmetrical_control(input: Control) {
+    fn symmetrical_control(#[strategy(generate_control::<Reference>())] input: Control) {
         let expected = input;
         let mut buf = Cursor::new(vec![]);
         expected.write::<Reference>(&mut buf).unwrap();

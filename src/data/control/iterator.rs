@@ -65,7 +65,7 @@ mod test {
             .cloned()
             .collect();
         input.push(Control {
-            command: Command::new_stop(0),
+            command: Command::new_stop::<Reference>(0),
             bytes: vec![],
         });
         let expected = input.clone();

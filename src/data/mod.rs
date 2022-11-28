@@ -4,6 +4,10 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.                   /
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
+
+//! Module for things relating the actual compressed data block. Anything past the header info,
+//! the actual compression algorithms themselves, control codes, etc.
+
 pub mod compression;
 pub mod control;
 pub mod decompression;

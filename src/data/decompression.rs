@@ -13,9 +13,7 @@ use crate::format::Format;
 use crate::header::Header;
 use crate::RefPackError;
 
-/// Decompress refpack data.
-///
-/// Accepts arbitrary `Read`s and `Write`s.
+/// Decompress `refpack` data. Accepts arbitrary `Read`s and `Write`s.
 ///
 /// # Example
 ///
@@ -32,8 +30,9 @@ use crate::RefPackError;
 /// ```
 /// # Errors
 ///
-/// Will return `Error::InvalidMagic` if the header is malformed, indicating uncompressed data
-/// Will return `Error::Io` if there is an IO error
+/// - Will return `Error::InvalidMagic` if the header is malformed, indicating uncompressed data or
+/// attempting to decompress data in the incorrect format
+/// - Will return `Error::Io` if there is an IO error
 pub fn decompress<F: Format>(
     reader: &mut (impl Read + Seek),
     writer: &mut impl Write,

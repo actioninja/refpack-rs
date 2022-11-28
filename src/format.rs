@@ -12,9 +12,20 @@ use crate::data::control::mode::{Reference as ReferenceControl, Simcity4 as Simc
 use crate::data::control::Mode as ControlMode;
 use crate::header::mode::{Maxis, Mode as HeaderMode, Reference as ReferenceHeader};
 
-/// Marker trait. Implement on a unit to make them usable as arguments to compression functions
+/// Trait that represents a pair of Header Modes and Control Modes that define a compression format.
+///
+/// This trait is referenced entirely via associated functions at compile time and gets entirely
+/// monomorphized out. It solely exists to reference associated functions on the two control types.
+/// It should not be implemented on structs that are intended to be constructed, and it's
+/// recommended to add a `()` typed private field to prevent them from being constructed.
 pub trait Format {
+    /// The header read/write mode to be used for compression and decompression.
+    ///
+    /// [HeaderMode](crate::header::mode::Mode) is an alias of the mode in the header module.
     type HeaderMode: HeaderMode;
+    /// The body control code read/write mode to be used for compression and decompression.
+    ///
+    /// [ControlMode](crate::data::control::mode) is an alias of the mode in the control module.
     type ControlMode: ControlMode;
 }
 
