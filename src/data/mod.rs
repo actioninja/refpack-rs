@@ -21,3 +21,40 @@ pub(crate) fn copy_within_slice(v: &mut [impl Copy], from: usize, to: usize, len
         dst[..len].copy_from_slice(&src[from..from + len]);
     }
 }
+
+#[cfg(test)]
+mod test {
+    use proptest::prelude::*;
+    use test_strategy::proptest;
+
+    use crate::format::Reference;
+    use crate::{easy_compress, easy_decompress};
+
+    #[proptest(ProptestConfig { cases: 100_000, ..Default::default() })]
+    fn symmetrical_compression(#[filter(#input.len() > 0)] input: Vec<u8>) {
+        let compressed = easy_compress::<Reference>(&input).unwrap();
+        let decompressed = easy_decompress::<Reference>(&compressed).unwrap();
+
+        prop_assert_eq!(input, decompressed);
+    }
+
+    #[proptest]
+    fn large_input_compression(
+        #[strategy(proptest::collection::vec(any::<u8>(), (100_000..=500_000)))] input: Vec<u8>,
+    ) {
+        let _unused = easy_compress::<Reference>(&input).unwrap();
+    }
+
+    #[proptest(ProptestConfig {
+    max_shrink_iters: 1_000_000,
+    ..Default::default()
+    })]
+    fn symmetrical_compression_large_input(
+        #[strategy(proptest::collection::vec(any::<u8>(), (2_000..=2_000)))] input: Vec<u8>,
+    ) {
+        let compressed = easy_compress::<Reference>(&input).unwrap();
+        let decompressed = easy_decompress::<Reference>(&compressed).unwrap();
+
+        prop_assert_eq!(input, decompressed);
+    }
+}

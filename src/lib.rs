@@ -5,8 +5,16 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-//! A rust crate for compressing and decompressing data in the RefPack format utilized by
-//! many EA games of the early 2000s
+//! A very overengineered rust crate for compressing and decompressing data in the RefPack format
+//! utilized by many EA games of the early 2000s
+//!
+//! RefPack is a nonstandardized format that varied greatly in exact encoding and implementation.
+//! `refpack` uses a `Format` system to specify different encoding formats. This is implemented via
+//! generic trait parameters that get monomorphized down to static dispatch.
+//!
+//! Put simply, this means that you get the benefit of being able to use any format however you like
+//! without any performance overhead from dynamic dispatch, as well as being able to implement your
+//! own arbitrary formats that are still compatible with the same compression algorithms.
 //!
 //! More details on the refpack format can be found at [the niotso wiki](http://wiki.niotso.org/RefPack). The short explanation is that RefPack is a compression scheme loosely based on LZ77 compression.
 //!

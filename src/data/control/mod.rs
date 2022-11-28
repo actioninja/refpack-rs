@@ -66,7 +66,7 @@ impl Command {
         );
 
         if offset > M::SIZES.long_offset_max() as usize
-            || length > M::SIZES.long_offset_max() as usize
+            || length > M::SIZES.long_length_max() as usize
         {
             panic!(
                 "Invalid offset or length (Maximum offset {}, got {}) (Maximum length {}, got {})",
@@ -75,8 +75,8 @@ impl Command {
                 M::SIZES.long_length_max(),
                 length
             );
-        } else if offset > M::SIZES.medium_offset_min() as usize
-            || length > M::SIZES.medium_offset_max() as usize
+        } else if offset > M::SIZES.medium_offset_max() as usize
+            || length > M::SIZES.medium_length_max() as usize
         {
             assert!(
                 length >= M::SIZES.long_length_min() as usize,
@@ -90,8 +90,8 @@ impl Command {
                 length: length as u16,
                 literal: literal as u8,
             }
-        } else if offset > M::SIZES.short_offset_min() as usize
-            || length > M::SIZES.short_length_min() as usize
+        } else if offset > M::SIZES.short_offset_max() as usize
+            || length > M::SIZES.short_length_max() as usize
         {
             assert!(
                 length >= M::SIZES.medium_length_min() as usize,
