@@ -60,6 +60,8 @@ mod error;
 pub mod format;
 pub mod header;
 
+pub use crate::data::compression::{compress, easy_compress};
+pub use crate::data::decompression::{decompress, easy_decompress};
 pub use crate::error::{Error as RefPackError, Result as RefPackResult};
 
 /*
