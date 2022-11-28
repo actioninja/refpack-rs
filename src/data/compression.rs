@@ -264,3 +264,19 @@ pub fn easy_compress<F: Format>(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     compress::<F>(input.len(), &mut reader, &mut writer)?;
     Ok(writer.into_inner())
 }
+
+#[cfg(test)]
+mod test {
+    use proptest::prelude::*;
+    use test_strategy::proptest;
+
+    use super::*;
+    use crate::format::Reference;
+
+    #[proptest]
+    fn large_input_compression(
+        #[strategy(proptest::collection::vec(any::<u8>(), (100_000..=500_000)))] input: Vec<u8>,
+    ) {
+        let _unused = easy_compress::<Reference>(&input).unwrap();
+    }
+}

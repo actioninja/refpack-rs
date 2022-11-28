@@ -11,6 +11,8 @@
 use std::io::{Read, Seek, Write};
 
 #[cfg(test)]
+use proptest::prelude::*;
+#[cfg(test)]
 use test_strategy::Arbitrary;
 
 use crate::header::mode::Mode;
@@ -26,11 +28,31 @@ pub mod mode;
 /// Some implementations seem to use these two bytes as a flags field
 pub const MAGIC: u16 = 0x10FB;
 
+#[cfg(test)]
+#[derive(Debug, Default)]
+#[allow(clippy::module_name_repetitions)]
+pub struct HeaderArgs {
+    decompressed_limit: u32,
+    compressed_limit: Option<u32>,
+}
+
+#[cfg(test)]
+fn generate_compressed_length(compressed_limit: Option<u32>) -> BoxedStrategy<Option<u32>> {
+    if let Some(compressed_limit) = compressed_limit {
+        (0..=compressed_limit).prop_map(Some).boxed()
+    } else {
+        Just(None).boxed()
+    }
+}
+
 /// Internal struct to represent a decoded header
 #[derive(Eq, PartialEq, Debug, Default, Copy, Clone)]
 #[cfg_attr(test, derive(Arbitrary))]
+#[cfg_attr(test, arbitrary(args = HeaderArgs))]
 pub struct Header {
+    #[cfg_attr(test, strategy(0..=args.decompressed_limit))]
     pub decompressed_length: u32,
+    #[cfg_attr(test, strategy(generate_compressed_length(args.compressed_limit)))]
     pub compressed_length: Option<u32>,
 }
 

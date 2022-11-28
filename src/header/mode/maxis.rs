@@ -56,7 +56,9 @@ mod test {
     use crate::header::Header;
 
     #[proptest]
-    fn symmetrical_read_write(#[filter(#header.decompressed_length < 16_777_215)] header: Header) {
+    fn symmetrical_read_write(
+        #[any(decompressed_limit = 16_777_214, compressed_limit = Some(u32::MAX))] header: Header,
+    ) {
         let mut write_buf = vec![];
         let mut write_cur = Cursor::new(&mut write_buf);
         header.write::<Maxis>(&mut write_cur).unwrap();

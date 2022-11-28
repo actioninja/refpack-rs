@@ -38,13 +38,6 @@ mod test {
         prop_assert_eq!(input, decompressed);
     }
 
-    #[proptest]
-    fn large_input_compression(
-        #[strategy(proptest::collection::vec(any::<u8>(), (100_000..=500_000)))] input: Vec<u8>,
-    ) {
-        let _unused = easy_compress::<Reference>(&input).unwrap();
-    }
-
     #[proptest(ProptestConfig {
     max_shrink_iters: 1_000_000,
     ..Default::default()
