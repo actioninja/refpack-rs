@@ -252,7 +252,7 @@ impl Mode for Reference {
         copy_literal: (0, 3),
         short_offset: (1, 1_023),
         short_length: (3, 10),
-        medium_offset: (1, 16_838),
+        medium_offset: (1, 16_383),
         medium_length: (4, 67),
         long_offset: (1, 131_072),
         long_length: (5, 1028),

@@ -65,7 +65,7 @@ impl Command {
             literal
         );
 
-        if offset > M::SIZES.long_offset_min() as usize
+        if offset > M::SIZES.long_offset_max() as usize
             || length > M::SIZES.long_offset_max() as usize
         {
             panic!(
@@ -267,7 +267,6 @@ impl Control {
 pub(crate) mod tests {
     use std::io::{Cursor, SeekFrom};
 
-    use proptest::prelude::*;
     use test_strategy::proptest;
 
     use super::*;
@@ -311,27 +310,24 @@ pub(crate) mod tests {
         let literal_strat = sizes.literal_effective_min()..=sizes.literal_effective_max();
         let literal =
             Strategy::prop_map(literal_strat, |literal| Command::Literal((literal * 4) + 4));
-        let strategy = prop_oneof![
+        prop_oneof![
             short_copy_strat,
             medium_copy_strat,
             long_copy_strat,
             literal
         ]
-        .boxed();
-        strategy
+        .boxed()
     }
 
     pub fn generate_stopcode<M: Mode>() -> BoxedStrategy<Command> {
         let sizes = M::SIZES;
 
         (sizes.copy_literal_min()..=sizes.copy_literal_max())
-            .prop_map(|value| Command::Stop(value))
+            .prop_map(Command::Stop)
             .boxed()
     }
 
     pub fn generate_control<M: Mode>() -> BoxedStrategy<Control> {
-        let sizes = M::SIZES;
-
         generate_random_valid_command::<M>()
             .prop_flat_map(|command| {
                 (
@@ -344,8 +340,6 @@ pub(crate) mod tests {
     }
 
     pub fn generate_stop_control<M: Mode>() -> BoxedStrategy<Control> {
-        let sizes = M::SIZES;
-
         generate_stopcode::<M>()
             .prop_flat_map(|command| {
                 (

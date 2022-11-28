@@ -9,7 +9,6 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
-use crate::data::control::mode::Sizes;
 use crate::data::control::{Command, Control, Mode};
 use crate::format::Format;
 use crate::header::mode::Mode as HeaderMode;

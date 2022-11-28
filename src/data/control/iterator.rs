@@ -54,10 +54,13 @@ mod test {
 
     use super::*;
     use crate::data::control::mode::Reference;
+    use crate::data::control::tests::generate_valid_control_sequence;
     use crate::data::control::{Command, Control};
 
     #[proptest]
-    fn test_control_iterator(input: Vec<Control>) {
+    fn test_control_iterator(
+        #[strategy(generate_valid_control_sequence::<Reference>(500))] input: Vec<Control>,
+    ) {
         //todo: make this not a stupid hack
         let mut input: Vec<Control> = input
             .iter()

@@ -5,6 +5,8 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+//! possible modes to use for encoding and decoding control blocks
+
 mod reference;
 mod simcity_4;
 
