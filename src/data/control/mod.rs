@@ -188,11 +188,18 @@ impl Command {
         matches!(self, Command::Stop(_))
     }
 
-    ///
+    /// Reads and decodes a command from a `Read + Seek` reader.
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
+    /// attempting to read data
     pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> RefPackResult<Self> {
         M::read(reader)
     }
 
+    /// Encodes and writes a command to a `Write + Seek` writer
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
+    /// attempting to write data
     pub fn write<M: Mode>(self, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
         M::write(self, writer)?;
         Ok(())
@@ -246,6 +253,10 @@ impl Control {
         }
     }
 
+    /// Reads and decodes a control block from a `Read + Seek` reader
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
+    /// attempting to read data
     pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> Result<Self, RefPackError> {
         let command = Command::read::<M>(reader)?;
         let mut buf = vec![0u8; command.num_of_literal().unwrap_or(0)];
@@ -256,6 +267,10 @@ impl Control {
         })
     }
 
+    /// Encodes and writes a control block to a `Write + Seek` writer
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
+    /// attempting to write data
     pub fn write<M: Mode>(&self, writer: &mut (impl Write + Seek)) -> Result<(), RefPackError> {
         self.command.write::<M>(writer)?;
         writer.write_all(&self.bytes)?;

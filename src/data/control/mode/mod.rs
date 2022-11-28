@@ -182,7 +182,7 @@ pub trait Mode {
     /// Writes to a `Write + Seek` writer and attempts to encode a command at the current position.
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
-    /// attempting to read data
+    /// attempting to write data
     fn write<W: Write + Seek>(command: Command, writer: &mut W) -> RefPackResult<()>;
 }
 
