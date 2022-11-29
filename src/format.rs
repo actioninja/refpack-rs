@@ -46,13 +46,13 @@ impl Format for Reference {
 /// Format utilized by The Sims games from Sims 1 to 2
 /// - Uses standard [Maxis](crate::header::mode::Maxis) header
 /// - Standard control codes ([Reference](crate::data::control::mode::Reference))
-pub struct TheSims {
+pub struct TheSims12 {
     // trick to prevent struct from ever being constructed. These are "markers" intended to be used
     // as generic arguments rather than data structs
     _private: (),
 }
 
-impl Format for TheSims {
+impl Format for TheSims12 {
     type HeaderMode = Maxis;
     type ControlMode = ReferenceControl;
 }

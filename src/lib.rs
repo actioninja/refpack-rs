@@ -41,7 +41,9 @@
 //!
 //! | Format | Games | Control | Header |
 //! |--------|-------|---------|--------|
-//! | Reference | - Various 90s Origin Software games. | Reference | Reference |
+//! | [Reference](crate::format::Reference) | Various 90s Origin Software and EA games | [Reference](crate::data::control::mode::Reference) | [Reference](crate::header::mode::Reference) |
+//! | [TheSims12](crate::format::TheSims12) | The Sims, The Sims Online, The Sims 2 | [Reference](crate::data::control::mode::Reference) | [Maxis](crate::header::mode::Maxis) |
+//! | [Simcity4](crate::format::Simcity4) | Simcity 4 | [Simcity4](crate::data::control::mode::Simcity4) | [Maxis](crate::header::mode::Maxis) |
 //!
 //!
 //! ### Example
