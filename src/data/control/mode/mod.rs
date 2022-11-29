@@ -154,7 +154,11 @@ impl Sizes {
     }
 }
 
-/// Represents an encoding/decoding format for compression commands. TODO: Explanation of how this is a marker trait for static dispatch functions
+/// Represents an encoding/decoding format for compression commands.
+///
+/// This trait is entirely statically resolved and should only ever be implemented on structs which
+/// cannot be constructed. It has only associated functions, no methods, and only ever is referenced
+/// via generic arguments.
 ///
 /// ## Key for description:
 /// - Len: Length of the command in bytes
@@ -170,7 +174,12 @@ impl Sizes {
 /// - `B`: Literal bytes Length
 /// - `-`: Nibble Separator
 /// - `:`: Byte Separator
-/// To implement your own commands, do something TODO
+///
+/// To implement your own commands, implement `Mode` on to a unit struct or unconstructable struct
+/// with one private member and no new method. #[Reference](crate::data::control::mode::Reference)
+/// has various associated methods for common standard implementations that can be composed in.
+/// `read` and `write` should be symmetrical, and a value fed in to read and then back out of write
+/// should yield the same result.
 pub trait Mode {
     const SIZES: Sizes;
 

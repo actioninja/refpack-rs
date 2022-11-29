@@ -18,7 +18,14 @@ use crate::header::Header;
 use crate::RefPackResult;
 
 /// Represents a read and write format for a Header
-/// todo: document this better
+///
+/// This trait is entirely statically resolved and should only ever be implemented on structs which
+/// cannot be constructed. It has only associated functions, no methods, and only ever is referenced
+/// via generic arguments.
+///
+/// To implement your own commands, implement `Mode` on to a unit struct or unconstructable struct
+/// with one private member and no new method. `read` and `write` should be symmetrical, and a value
+/// fed in to read and then back out of write should yield the same result.
 pub trait Mode {
     /// Length of the header, used by some parsing
     const LENGTH: usize;

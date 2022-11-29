@@ -5,7 +5,7 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-/// Decompression parsing, algorithms, and functionality
+//! Decompression parsing, algorithms, and functionality
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::data::control::iterator::Iter;
