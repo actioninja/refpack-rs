@@ -55,22 +55,12 @@ mod test {
     use super::*;
     use crate::data::control::mode::Reference;
     use crate::data::control::tests::generate_valid_control_sequence;
-    use crate::data::control::{Command, Control};
+    use crate::data::control::Control;
 
     #[proptest]
     fn test_control_iterator(
         #[strategy(generate_valid_control_sequence::<Reference>(500))] input: Vec<Control>,
     ) {
-        //todo: make this not a stupid hack
-        let mut input: Vec<Control> = input
-            .iter()
-            .filter(|c| !c.command.is_stop())
-            .cloned()
-            .collect();
-        input.push(Control {
-            command: Command::new_stop::<Reference>(0),
-            bytes: vec![],
-        });
         let expected = input.clone();
         let buf = input
             .iter()

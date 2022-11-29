@@ -32,15 +32,30 @@
 //! `decompress` will read from the buffer until it encounters a stopcode (byte within (0xFC..=0xFF)),
 //! while `compress` will read in the provided length.
 //!
+//! all compression and decompression functions accept one generic argument constrained to the
+//! [Format](crate::format::Format) trait. Implementations should be a unit or "unconstructable"
+//! (one inaccessible `()` member to prevent construction), and define a pair of how to interpret
+//!
+//!
+//! ## Implementations
+//!
+//! | Format | Games | Control | Header |
+//! |--------|-------|---------|--------|
+//! | Reference | - Various 90s Origin Software games. | Reference | Reference |
+//!
+//!
 //! ### Example
 //!
-//! ```rust
+//! ```
 //! use std::io::Cursor;
 //! use std::io::Seek;
+//! use refpack::format::Reference;
 //!
+//! # fn main() {
 //! let mut source_reader = Cursor::new(b"Hello World!".to_vec());
 //! let mut out_buf = Cursor::new(vec![]);
-//! refpack::compress(source_reader.get_ref().len(), &mut source_reader, &mut out_buf).unwrap();
+//! refpack::compress::<Reference>(source_reader.get_ref().len(), &mut source_reader, &mut out_buf).unwrap();
+//! # }
 //! ```
 //!
 //! The easy variants are `compress_easy` and `decompress_easy`, which take a `&[u8]` and return

@@ -5,6 +5,7 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+//! Compression algorithms, helpers, and compression encoding
 use std::cmp::max;
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
@@ -247,8 +248,9 @@ pub fn compress<F: Format>(
     Ok(())
 }
 
-/// Wrapped compress function with a bit easier and cleaner of an API.
-/// Takes a slice of uncompressed bytes and returns a Vec of compressed bytes
+/// Wrapped compress function with a bit easier and cleaner of an API. Takes a `&[u8]` slice of
+/// uncompressed bytes and returns a `Vec<u8>` of compressed bytes
+///
 /// In implementation this just creates `Cursor`s for the reader and writer and calls `compress`
 ///
 /// Marked with `inline` so it should be inlined across crates and equivalent to manually creating
@@ -256,7 +258,7 @@ pub fn compress<F: Format>(
 ///
 /// # Errors
 ///
-/// Will return `Error::Io` if there is an IO error
+/// Will return [RefPackError](crate::RefPackError) as relevant. All errors are possible.
 #[inline]
 pub fn easy_compress<F: Format>(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     let mut reader = Cursor::new(input);

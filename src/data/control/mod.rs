@@ -5,7 +5,7 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-//! Module for control codes utilized by compression and decompression
+//! control codes utilized by compression and decompression
 
 pub(crate) mod iterator;
 pub mod mode;
@@ -20,7 +20,8 @@ use proptest::prelude::*;
 pub use crate::data::control::mode::Mode;
 use crate::{RefPackError, RefPackResult};
 
-/// The part of
+/// The instruction part of a control block that dictates to the compression algorithm what
+/// operations should be executed to decompress
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Command {
     /// Represents a two byte copy command

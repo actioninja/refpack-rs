@@ -5,7 +5,6 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-/*
 use std::io::Cursor;
 use std::iter;
 
@@ -15,9 +14,7 @@ use criterion::{
 };
 use rand::prelude::*;
 use refpack::{compress, decompress, easy_compress, easy_decompress};
- */
 
-/*
 const CONST_BENCH_LENGTH: usize = 8096;
 
 fn random_vec(len: usize) -> Vec<u8> {
@@ -108,5 +105,3 @@ criterion_group!(
     random_increasing_data_sets_bench
 );
 criterion_main!(benches);
-
- */

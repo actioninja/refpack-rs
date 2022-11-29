@@ -13,7 +13,15 @@ use crate::header::mode::Mode;
 use crate::header::Header;
 use crate::RefPackResult;
 
-pub struct Reference;
+/// Earliest "Reference" implementation of header
+///
+/// ## Structure
+/// - Little Endian u32: decompressed length
+///
+/// Nothing else
+pub struct Reference {
+    _private: (),
+}
 
 impl Mode for Reference {
     const LENGTH: usize = 4;

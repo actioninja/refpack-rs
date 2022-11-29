@@ -13,7 +13,19 @@ use crate::header::mode::Mode;
 use crate::header::Header;
 use crate::{header, RefPackError, RefPackResult};
 
-pub struct Maxis;
+/// Header used by many Maxis and SimEA games
+///
+/// ## Structure
+/// - Little Endian u32: Compressed length
+/// - u8: Flags field
+///     only useful flag is large length which tells it to read decompressed length as u32
+/// - Magic Number: 0xFB
+/// - Big Endian u24/u32: Decompressed Length
+pub struct Maxis {
+    _private: (),
+}
+
+pub const FLAGS: u8 = 0x10;
 
 impl Mode for Maxis {
     const LENGTH: usize = 9;
@@ -25,7 +37,8 @@ impl Mode for Maxis {
         } else {
             Some(compressed_length_prewrap)
         };
-        let magic = reader.read_u16::<BigEndian>()?;
+        let _flags = reader.read_u8()?;
+        let magic = reader.read_u8()?;
         if magic != header::MAGIC {
             return Err(RefPackError::BadMagic(magic));
         }
@@ -39,7 +52,8 @@ impl Mode for Maxis {
 
     fn write<W: Write + Seek>(header: Header, writer: &mut W) -> RefPackResult<()> {
         writer.write_u32::<LittleEndian>(header.compressed_length.unwrap_or(0))?;
-        writer.write_u16::<BigEndian>(header::MAGIC)?;
+        writer.write_u8(FLAGS)?;
+        writer.write_u8(header::MAGIC)?;
         writer.write_u24::<BigEndian>(header.decompressed_length)?;
         Ok(())
     }

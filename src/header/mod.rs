@@ -20,13 +20,8 @@ use crate::RefPackResult;
 
 pub mod mode;
 
-/// Magic number in the header. Literal `10 FB` sequence in stream, read and write as Big Endian.
-/// There seems to be some debate as to whether this is intended to be `0xFB10` and the number is
-/// stored in Little Endian, but this is an encoding difference and I decided to keep it as the
-/// literal stream sequence
-///
-/// Some implementations seem to use these two bytes as a flags field
-pub const MAGIC: u16 = 0x10FB;
+/// Magic number in the header. This immediately follows a flag field in most cases
+pub const MAGIC: u8 = 0xFB;
 
 #[cfg(test)]
 #[derive(Debug, Default)]
@@ -45,7 +40,7 @@ fn generate_compressed_length(compressed_limit: Option<u32>) -> BoxedStrategy<Op
     }
 }
 
-/// Internal struct to represent a decoded header
+/// represents a decoded header
 #[derive(Eq, PartialEq, Debug, Default, Copy, Clone)]
 #[cfg_attr(test, derive(Arbitrary))]
 #[cfg_attr(test, arbitrary(args = HeaderArgs))]

@@ -17,7 +17,7 @@ pub enum Error {
     /// depends on the exact implementation.
     /// u16: What was read instead of the magic value
     #[error("Invalid magic number at compression header `{0:#04X}`")]
-    BadMagic(u16),
+    BadMagic(u8),
     /// Generic IO Error wrapper for when a generic IO error of some sort occurs in relation to
     /// the readers and writers.
     #[error("IO Error")]

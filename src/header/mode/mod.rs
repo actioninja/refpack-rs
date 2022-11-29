@@ -5,6 +5,7 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+//! possible modes to use for header encoding and decoding
 mod maxis;
 mod reference;
 
@@ -17,7 +18,7 @@ use crate::header::Header;
 use crate::RefPackResult;
 
 /// Represents a read and write format for a Header
-///
+/// todo: document this better
 pub trait Mode {
     /// Length of the header, used by some parsing
     const LENGTH: usize;

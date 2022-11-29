@@ -5,7 +5,7 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-//! Module for things relating the actual compressed data block. Anything past the header info,
+//! things relating the actual compressed data block. Anything past the header info,
 //! the actual compression algorithms themselves, control codes, etc.
 
 pub mod compression;
