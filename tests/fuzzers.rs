@@ -5,6 +5,8 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+#![cfg(target_os = "windows")]
+
 use proptest::prelude::*;
 use refpack::format::Reference;
 use refpack::{easy_compress, easy_decompress};
