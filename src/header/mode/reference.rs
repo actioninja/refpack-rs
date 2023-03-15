@@ -24,7 +24,9 @@ pub struct Reference {
 }
 
 impl Mode for Reference {
-    const LENGTH: usize = 4;
+    fn length(_decompressed_size: usize) -> usize {
+        4
+    }
 
     fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Header> {
         let decompressed_length = reader.read_u32::<LittleEndian>()?;

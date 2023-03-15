@@ -96,7 +96,7 @@ mod test {
     use proptest::num::u8;
     use proptest::prop_assert_eq;
     use test_strategy::proptest;
-    use crate::{easy_compress, easy_decompress, format};
+    use crate::{easy_compress, easy_decompress};
     use crate::format::{Reference, Simcity4, TheSims12, TheSims34};
 
     #[proptest]
@@ -132,6 +132,7 @@ mod test {
 
     #[proptest]
     fn sims34_symmetrical_read_write(
+        // this should include inputs of > 16mb, but testing those inputs is extremely slow
         #[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
         let compressed = easy_compress::<TheSims34>(&data).unwrap();
 

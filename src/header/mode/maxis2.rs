@@ -33,7 +33,13 @@ enum Flags {
 }
 
 impl Mode for Maxis2 {
-    const LENGTH: usize = 6;
+    fn length(decompressed_size: usize) -> usize {
+        if decompressed_size > 0xFF_FF_FF {
+            6
+        } else {
+            5
+        }
+    }
 
     fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Header> {
         let flags = match reader.read_u8()? {
@@ -88,7 +94,7 @@ mod test {
         let mut write_cur = Cursor::new(&mut write_buf);
         header.write::<Maxis2>(&mut write_cur).unwrap();
 
-        prop_assert_eq!(write_buf.len(), Maxis2::LENGTH);
+        prop_assert_eq!(write_buf.len(), Maxis2::length(header.decompressed_length as usize));
 
         let mut read_cur = Cursor::new(&mut write_buf);
         let got = Header::read::<Maxis2>(&mut read_cur).unwrap();

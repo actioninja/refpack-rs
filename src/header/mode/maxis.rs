@@ -28,7 +28,9 @@ pub struct Maxis {
 pub const FLAGS: u8 = 0x10;
 
 impl Mode for Maxis {
-    const LENGTH: usize = 9;
+    fn length(_decompressed_size: usize) -> usize {
+        9
+    }
 
     fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Header> {
         let compressed_length_prewrap = reader.read_u32::<LittleEndian>()?;
