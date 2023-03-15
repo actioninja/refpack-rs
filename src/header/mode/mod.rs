@@ -7,11 +7,13 @@
 
 //! possible modes to use for header encoding and decoding
 mod maxis;
+mod maxis2;
 mod reference;
 
 use std::io::{Read, Seek, Write};
 
 pub use maxis::Maxis;
+pub use maxis2::Maxis2;
 pub use reference::Reference;
 
 use crate::header::Header;
