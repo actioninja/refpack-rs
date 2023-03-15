@@ -88,3 +88,55 @@ pub mod header;
 pub use crate::data::compression::{compress, easy_compress};
 pub use crate::data::decompression::{decompress, easy_decompress};
 pub use crate::error::{Error as RefPackError, Result as RefPackResult};
+
+
+#[cfg(test)]
+mod test {
+    use proptest::collection::vec;
+    use proptest::num::u8;
+    use proptest::prop_assert_eq;
+    use test_strategy::proptest;
+    use crate::{easy_compress, easy_decompress, format};
+    use crate::format::{Reference, Simcity4, TheSims12, TheSims34};
+
+    #[proptest]
+    fn reference_symmetrical_read_write(
+        #[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
+
+        let compressed = easy_compress::<Reference>(&data).unwrap();
+
+        let got = easy_decompress::<Reference>(&compressed).unwrap();
+
+        prop_assert_eq!(data, got);
+    }
+
+    #[proptest]
+    fn sims12_symmetrical_read_write(
+        #[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
+        let compressed = easy_compress::<TheSims12>(&data).unwrap();
+
+        let got = easy_decompress::<TheSims12>(&compressed).unwrap();
+
+        prop_assert_eq!(data, got);
+    }
+
+    #[proptest]
+    fn simcity4_symmetrical_read_write(
+        #[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
+        let compressed = easy_compress::<Simcity4>(&data).unwrap();
+
+        let got = easy_decompress::<Simcity4>(&compressed).unwrap();
+
+        prop_assert_eq!(data, got);
+    }
+
+    #[proptest]
+    fn sims34_symmetrical_read_write(
+        #[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
+        let compressed = easy_compress::<TheSims34>(&data).unwrap();
+
+        let got = easy_decompress::<TheSims34>(&compressed).unwrap();
+
+        prop_assert_eq!(data, got);
+    }
+}
