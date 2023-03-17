@@ -34,6 +34,10 @@ fn random_increasing_vecs(num: usize, increase_interval: usize) -> Vec<Vec<u8>> 
     .collect()
 }
 
+fn repeating_vec(num: usize) -> Vec<u8> {
+    (0..=255).cycle().take(num).collect()
+}
+
 fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     let size = input_vec.len();
     group.bench_with_input(format!("easy_compress ({size})"), &input_vec, |b, i| {
@@ -118,8 +122,27 @@ fn random_increasing_data_sets_bench(c: &mut Criterion) {
     group.finish()
 }
 
+fn repeating_increasing_data_sets_bench(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Repeating Input Data Increasing");
+
+    for size in [
+        CONST_BENCH_LENGTH,
+        CONST_BENCH_LENGTH * 2,
+        CONST_BENCH_LENGTH * 4,
+        CONST_BENCH_LENGTH * 8,
+        CONST_BENCH_LENGTH * 16,
+        CONST_BENCH_LENGTH * 32,
+    ] {
+        group.throughput(Throughput::Bytes(size as u64));
+
+        let random_input = repeating_vec(size);
+        bench_set(&mut group, &random_input);
+    }
+    group.finish()
+}
+
 fn files_bench(c: &mut Criterion) {
-    let mut entries = fs::read_dir(".").unwrap()
+    let mut entries = fs::read_dir("benches/bench_files/").unwrap()
         .map(|res| res.unwrap().path())
         .collect::<Vec<_>>();
 
@@ -144,6 +167,7 @@ criterion_group!(
     benches,
     random_data_bench,
     random_increasing_data_sets_bench,
+    repeating_increasing_data_sets_bench,
     files_bench
 );
 criterion_main!(benches);
