@@ -7,6 +7,7 @@
 
 use std::io::Cursor;
 use std::{fs, iter};
+use std::time::Duration;
 
 use criterion::measurement::WallTime;
 use criterion::{
@@ -118,15 +119,20 @@ fn random_increasing_data_sets_bench(c: &mut Criterion) {
 }
 
 fn files_bench(c: &mut Criterion) {
-    for file in fs::read_dir("benches/bench_files/").unwrap() {
-        let file = file.unwrap();
+    let mut entries = fs::read_dir(".").unwrap()
+        .map(|res| res.unwrap().path())
+        .collect::<Vec<_>>();
 
+    entries.sort();
+
+    for file in entries {
         let mut group = c.benchmark_group(format!("File {:?}", file.file_name()));
 
-        let input = fs::read(file.path()).unwrap();
+        let input = fs::read(file).unwrap();
 
         group.throughput(Throughput::Bytes(input.len() as u64));
         group.sample_size(10);
+        group.measurement_time(Duration::from_secs(10));
 
         bench_set(&mut group, &input);
 
