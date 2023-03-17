@@ -6,7 +6,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 use std::io::Cursor;
-use std::iter;
+use std::{fs, iter};
 
 use criterion::measurement::WallTime;
 use criterion::{
@@ -117,9 +117,27 @@ fn random_increasing_data_sets_bench(c: &mut Criterion) {
     group.finish()
 }
 
+fn files_bench(c: &mut Criterion) {
+    for file in fs::read_dir("benches/bench_files/").unwrap() {
+        let file = file.unwrap();
+
+        let mut group = c.benchmark_group(format!("File {:?}", file.file_name()));
+
+        let input = fs::read(file.path()).unwrap();
+
+        group.throughput(Throughput::Bytes(input.len() as u64));
+        group.sample_size(10);
+
+        bench_set(&mut group, &input);
+
+        group.finish();
+    }
+}
+
 criterion_group!(
     benches,
     random_data_bench,
-    random_increasing_data_sets_bench
+    random_increasing_data_sets_bench,
+    files_bench
 );
 criterion_main!(benches);
