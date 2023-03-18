@@ -147,7 +147,7 @@ fn files_bench(c: &mut Criterion<CyclesPerByte>) {
     entries.sort();
 
     for file in entries {
-        let mut group = c.benchmark_group(format!("File {:?}", file.file_name()));
+        let mut group = c.benchmark_group(format!("File {:?}", file.file_name().unwrap()));
 
         let input = fs::read(file).unwrap();
 
