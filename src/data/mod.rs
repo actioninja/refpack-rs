@@ -40,7 +40,7 @@ pub(crate) fn rle_decode<T>(
 
     let copy_fragment_start = buffer.len()
         .checked_sub(lookbehind_length)
-        .ok_or_else(|| RefPackError::BadOffset(buffer.len(), lookbehind_length))?;
+        .ok_or_else(|| RefPackError::NegativePosition(buffer.len(), lookbehind_length))?;
 
     // we don't need to reserve here because refpack has a decoded_length reserve
 
