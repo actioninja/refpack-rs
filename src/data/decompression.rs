@@ -6,10 +6,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 //! Decompression parsing, algorithms, and functionality
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{Cursor, Read, Seek, Write};
 
 use crate::data::control::iterator::Iter;
-use crate::data::copy_within_slice;
+use crate::data::rle_decode;
 use crate::format::Format;
 use crate::header::Header;
 use crate::RefPackError;
@@ -43,8 +43,8 @@ pub fn decompress<F: Format>(
         ..
     } = Header::read::<F::HeaderMode>(reader)?;
 
-    let mut decompression_buffer: Cursor<Vec<u8>> =
-        Cursor::new(vec![0; decompressed_length as usize]);
+    let mut decompression_buffer = Vec::new();
+    decompression_buffer.reserve_exact(decompressed_length as usize);
 
     for control in Iter::<_, F::ControlMode>::new(reader) {
         if !control.bytes.is_empty() {
@@ -52,25 +52,18 @@ pub fn decompress<F: Format>(
         }
 
         if let Some((offset, length)) = control.command.offset_copy() {
-            let decomp_pos = decompression_buffer.position() as usize;
-            let src_pos = decomp_pos - offset;
-
-            let buf = decompression_buffer.get_mut();
-
-            if (src_pos + length) < decomp_pos {
-                copy_within_slice(buf, src_pos, decomp_pos, length);
-            } else {
-                for i in 0..length {
-                    let target = decomp_pos + i;
-                    let source = src_pos + i;
-                    buf[target] = buf[source];
-                }
+            let new_length = decompression_buffer.len() + length;
+            if new_length > decompressed_length as usize {
+                return Err(RefPackError::BadLength(new_length - decompressed_length as usize));
             }
-            decompression_buffer.seek(SeekFrom::Current(length as i64))?;
+
+            rle_decode(&mut decompression_buffer, offset, length)?;
+        } else if decompression_buffer.len() > decompressed_length as usize {
+            return Err(RefPackError::BadLength(decompression_buffer.len() - decompressed_length as usize));
         }
     }
 
-    writer.write_all(decompression_buffer.get_ref())?;
+    writer.write_all(decompression_buffer.as_slice())?;
     writer.flush()?;
 
     Ok(())
