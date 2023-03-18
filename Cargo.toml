@@ -29,3 +29,6 @@ refpack-sys = { git = "https://github.com/actioninja/refpack-sys.git" }
 [[bench]]
 name = "synthetic_performance"
 harness = false
+
+[profile.release]
+debug = true

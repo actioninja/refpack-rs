@@ -7,12 +7,43 @@
 
 //! Decompression parsing, algorithms, and functionality
 use std::io::{Cursor, Read, Seek, Write};
+use crate::data::control::Command;
 
-use crate::data::control::iterator::Iter;
-use crate::data::rle_decode;
+use crate::data::{copy_from_reader, rle_decode_fixed};
 use crate::format::Format;
 use crate::header::Header;
 use crate::RefPackError;
+
+// Returning the internal buffer is the fastest way to return the data
+// since that way the buffer doesn't have to be copied,
+// this function is used to reach optimal performance
+fn decompress_internal<F: Format>(
+    reader: &mut (impl Read + Seek)
+) -> Result<Vec<u8>, RefPackError> {
+    let Header {
+        decompressed_length,
+        ..
+    } = Header::read::<F::HeaderMode>(reader)?;
+
+    let mut decompression_buffer = vec![0; decompressed_length as usize];
+    let mut position = 0usize;
+
+    while {
+        let command = Command::read::<F::ControlMode>(reader)?;
+
+        if let Some(bytes) = command.num_of_literal() {
+            position = copy_from_reader(&mut decompression_buffer, reader, position, bytes)?;
+        }
+
+        if let Some((offset, length)) = command.offset_copy() {
+            position = rle_decode_fixed(&mut decompression_buffer, position, offset, length)?;
+        }
+
+        !command.is_stop()
+    } {}
+
+    Ok(decompression_buffer)
+}
 
 /// Decompress `refpack` data. Accepts arbitrary `Read`s and `Write`s.
 ///
@@ -38,32 +69,9 @@ pub fn decompress<F: Format>(
     reader: &mut (impl Read + Seek),
     writer: &mut impl Write,
 ) -> Result<(), RefPackError> {
-    let Header {
-        decompressed_length,
-        ..
-    } = Header::read::<F::HeaderMode>(reader)?;
+    let data = decompress_internal::<F>(reader)?;
 
-    let mut decompression_buffer = Vec::new();
-    decompression_buffer.reserve_exact(decompressed_length as usize);
-
-    for control in Iter::<_, F::ControlMode>::new(reader) {
-        if !control.bytes.is_empty() {
-            decompression_buffer.write_all(&control.bytes)?;
-        }
-
-        if let Some((offset, length)) = control.command.offset_copy() {
-            let new_length = decompression_buffer.len() + length;
-            if new_length > decompressed_length as usize {
-                return Err(RefPackError::BadLength(new_length - decompressed_length as usize));
-            }
-
-            rle_decode(&mut decompression_buffer, offset, length)?;
-        } else if decompression_buffer.len() > decompressed_length as usize {
-            return Err(RefPackError::BadLength(decompression_buffer.len() - decompressed_length as usize));
-        }
-    }
-
-    writer.write_all(decompression_buffer.as_slice())?;
+    writer.write_all(data.as_slice())?;
     writer.flush()?;
 
     Ok(())
@@ -84,7 +92,5 @@ pub fn decompress<F: Format>(
 #[inline]
 pub fn easy_decompress<F: Format>(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     let mut reader = Cursor::new(input);
-    let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
-    decompress::<F>(&mut reader, &mut writer)?;
-    Ok(writer.into_inner())
+    decompress_internal::<F>(&mut reader)
 }
