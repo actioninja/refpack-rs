@@ -9,10 +9,8 @@ use std::io::Cursor;
 use std::{fs, iter};
 use std::time::Duration;
 
-use criterion::measurement::WallTime;
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion, Throughput,
-};
+use criterion_cycles_per_byte::CyclesPerByte;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion, Throughput, BenchmarkId, SamplingMode};
 use rand::prelude::*;
 use refpack::{compress, decompress, easy_compress, easy_decompress};
 use refpack::format::Reference;
@@ -30,21 +28,21 @@ fn random_increasing_vecs(num: usize, increase_interval: usize) -> Vec<Vec<u8>> 
         cur_size += increase_interval;
         random_vec(tmp)
     })
-    .take(num)
-    .collect()
+        .take(num)
+        .collect()
 }
 
 fn repeating_vec(num: usize) -> Vec<u8> {
     (0..=255).cycle().take(num).collect()
 }
 
-fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
+fn bench_set(group: &mut BenchmarkGroup<CyclesPerByte>, input_vec: &[u8]) {
     let size = input_vec.len();
-    group.bench_with_input(format!("easy_compress ({size})"), &input_vec, |b, i| {
+    group.bench_with_input(BenchmarkId::new("easy_compress", size), &input_vec, |b, i| {
         b.iter(|| easy_compress::<Reference>(black_box(i)))
     });
 
-    group.bench_with_input(format!("compress ({size})"), &input_vec, |b, i| {
+    group.bench_with_input(BenchmarkId::new("compress", size), &input_vec, |b, i| {
         b.iter(|| {
             let mut in_buf = Cursor::new(i);
             let mut out_buf = Cursor::new(vec![]);
@@ -54,11 +52,11 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
 
     let compressed = easy_compress::<Reference>(input_vec).unwrap();
 
-    group.bench_with_input(format!("easy_decompress ({size})"), &compressed, |b, i| {
+    group.bench_with_input(BenchmarkId::new("easy_decompress", size), &compressed, |b, i| {
         b.iter(|| black_box(easy_decompress::<Reference>(black_box(i))))
     });
 
-    group.bench_with_input(format!("decompress ({size})"), &compressed, |b, i| {
+    group.bench_with_input(BenchmarkId::new("decompress", size), &compressed, |b, i| {
         b.iter(|| {
             let mut in_buf = Cursor::new(i);
             let mut out_buf = Cursor::new(vec![]);
@@ -66,7 +64,7 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
         })
     });
 
-    group.bench_with_input(format!("symmetrical easy ({size})"), &input_vec, |b, i| {
+    group.bench_with_input(BenchmarkId::new("symmetrical easy", size), &input_vec, |b, i| {
         b.iter(|| {
             let compressed = easy_compress::<Reference>(i).unwrap();
             let decompressed = easy_decompress::<Reference>(black_box(&compressed)).unwrap();
@@ -74,7 +72,7 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
         })
     });
 
-    group.bench_with_input(format!("symmetrical ({size})"), &input_vec, |b, i| {
+    group.bench_with_input(BenchmarkId::new("symmetrical", size), &input_vec, |b, i| {
         b.iter(|| {
             let mut in_buf = Cursor::new(i);
             let mut out_buf = Cursor::new(vec![]);
@@ -91,7 +89,7 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     });
 }
 
-fn random_data_bench(c: &mut Criterion) {
+fn random_data_bench(c: &mut Criterion<CyclesPerByte>) {
     let mut group = c.benchmark_group("Constant Length Random Input Data".to_string());
 
     group.throughput(Throughput::Bytes(CONST_BENCH_LENGTH as u64));
@@ -103,7 +101,7 @@ fn random_data_bench(c: &mut Criterion) {
     group.finish();
 }
 
-fn random_increasing_data_sets_bench(c: &mut Criterion) {
+fn random_increasing_data_sets_bench(c: &mut Criterion<CyclesPerByte>) {
     let mut group = c.benchmark_group("Random Input Data Increasing");
 
     for size in [
@@ -122,7 +120,7 @@ fn random_increasing_data_sets_bench(c: &mut Criterion) {
     group.finish()
 }
 
-fn repeating_increasing_data_sets_bench(c: &mut Criterion) {
+fn repeating_increasing_data_sets_bench(c: &mut Criterion<CyclesPerByte>) {
     let mut group = c.benchmark_group("Repeating Input Data Increasing");
 
     for size in [
@@ -141,7 +139,7 @@ fn repeating_increasing_data_sets_bench(c: &mut Criterion) {
     group.finish()
 }
 
-fn files_bench(c: &mut Criterion) {
+fn files_bench(c: &mut Criterion<CyclesPerByte>) {
     let mut entries = fs::read_dir("benches/bench_files/").unwrap()
         .map(|res| res.unwrap().path())
         .collect::<Vec<_>>();
@@ -155,6 +153,7 @@ fn files_bench(c: &mut Criterion) {
 
         group.throughput(Throughput::Bytes(input.len() as u64));
         group.sample_size(10);
+        group.sampling_mode(SamplingMode::Flat);
         group.measurement_time(Duration::from_secs(10));
 
         bench_set(&mut group, &input);
@@ -164,8 +163,11 @@ fn files_bench(c: &mut Criterion) {
 }
 
 criterion_group!(
-    benches,
-    random_data_bench,
+    name = benches;
+    config = Criterion::default()
+    .with_measurement(CyclesPerByte)
+    .noise_threshold(0.02);
+    targets = random_data_bench,
     random_increasing_data_sets_bench,
     repeating_increasing_data_sets_bench,
     files_bench
