@@ -9,8 +9,8 @@ use std::io::Cursor;
 use std::{fs, iter};
 use std::time::Duration;
 
-use criterion_cycles_per_byte::CyclesPerByte;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion, Throughput, BenchmarkId, SamplingMode};
+use criterion::measurement::WallTime;
 use rand::prelude::*;
 use refpack::{compress, decompress, easy_compress, easy_decompress};
 use refpack::format::Reference;
@@ -36,7 +36,7 @@ fn repeating_vec(num: usize) -> Vec<u8> {
     (0..=255).cycle().take(num).collect()
 }
 
-fn bench_set(group: &mut BenchmarkGroup<CyclesPerByte>, input_vec: &[u8]) {
+fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     let size = input_vec.len();
     group.bench_with_input(BenchmarkId::new("easy_compress", size), &input_vec, |b, i| {
         b.iter(|| easy_compress::<Reference>(black_box(i)))
@@ -89,7 +89,7 @@ fn bench_set(group: &mut BenchmarkGroup<CyclesPerByte>, input_vec: &[u8]) {
     });
 }
 
-fn random_data_bench(c: &mut Criterion<CyclesPerByte>) {
+fn random_data_bench(c: &mut Criterion<WallTime>) {
     let mut group = c.benchmark_group("Constant Length Random Input Data".to_string());
 
     group.throughput(Throughput::Bytes(CONST_BENCH_LENGTH as u64));
@@ -101,7 +101,7 @@ fn random_data_bench(c: &mut Criterion<CyclesPerByte>) {
     group.finish();
 }
 
-fn random_increasing_data_sets_bench(c: &mut Criterion<CyclesPerByte>) {
+fn random_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
     let mut group = c.benchmark_group("Random Input Data Increasing");
 
     for size in [
@@ -120,7 +120,7 @@ fn random_increasing_data_sets_bench(c: &mut Criterion<CyclesPerByte>) {
     group.finish()
 }
 
-fn repeating_increasing_data_sets_bench(c: &mut Criterion<CyclesPerByte>) {
+fn repeating_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
     let mut group = c.benchmark_group("Repeating Input Data Increasing");
 
     for size in [
@@ -139,7 +139,7 @@ fn repeating_increasing_data_sets_bench(c: &mut Criterion<CyclesPerByte>) {
     group.finish()
 }
 
-fn files_bench(c: &mut Criterion<CyclesPerByte>) {
+fn files_bench(c: &mut Criterion<WallTime>) {
     let mut entries = fs::read_dir("benches/bench_files/").unwrap()
         .map(|res| res.unwrap().path())
         .collect::<Vec<_>>();
@@ -165,7 +165,6 @@ fn files_bench(c: &mut Criterion<CyclesPerByte>) {
 criterion_group!(
     name = benches;
     config = Criterion::default()
-    .with_measurement(CyclesPerByte)
     .noise_threshold(0.02);
     targets = random_data_bench,
     random_increasing_data_sets_bench,
