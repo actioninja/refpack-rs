@@ -31,15 +31,39 @@ fn decompress_internal<F: Format>(
     while {
         let command = Command::read::<F::ControlMode>(reader)?;
 
-        if let Some(bytes) = command.num_of_literal() {
-            position = copy_from_reader(&mut decompression_buffer, reader, position, bytes)?;
+        match command {
+            Command::Short { offset, length, literal } |
+            Command::Medium { offset, length, literal } => {
+                if literal > 0 {
+                    position = copy_from_reader(&mut decompression_buffer, reader, position, literal as usize)?;
+                }
+                position = rle_decode_fixed(&mut decompression_buffer, position, offset as usize, length as usize)?;
+                true
+            }
+            Command::Long { offset, length, literal } => {
+                if literal > 0 {
+                    position = copy_from_reader(&mut decompression_buffer, reader, position, literal as usize)?;
+                }
+                position = rle_decode_fixed(&mut decompression_buffer, position, offset as usize, length as usize)?;
+                true
+            }
+            Command::Literal(literal) => {
+                position = copy_from_reader(&mut decompression_buffer, reader, position, literal as usize)?;
+                true
+            }
+            Command::Stop(literal) => {
+                copy_from_reader(&mut decompression_buffer, reader, position, literal as usize)?;
+                false
+            }
         }
+
+        /*position = copy_from_reader(&mut decompression_buffer, reader, position, command.num_of_literal())?;
 
         if let Some((offset, length)) = command.offset_copy() {
             position = rle_decode_fixed(&mut decompression_buffer, position, offset, length)?;
         }
 
-        !command.is_stop()
+        !command.is_stop()*/
     } {}
 
     Ok(decompression_buffer)

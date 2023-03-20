@@ -50,9 +50,7 @@ pub(crate) fn rle_decode_fixed<T>(
         return Err(RefPackError::BadLength(position + length - buffer.len()));
     }
 
-    let copy_fragment_start = position
-        .checked_sub(offset)
-        .ok_or_else(|| RefPackError::NegativePosition(position, offset))?;
+    let copy_fragment_start = position - offset;
 
     while length > offset {
         buffer.copy_within(copy_fragment_start..position, position);
