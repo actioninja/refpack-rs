@@ -74,7 +74,7 @@ impl Reference {
     ///
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining one byte from the `reader`.
-    #[inline]
+    #[inline(always)]
     pub fn read_short(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
         let byte1 = first as usize;
         let byte2: usize = reader.read_u8()?.into();
@@ -94,7 +94,7 @@ impl Reference {
     ///
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining two bytes from the `reader`.
-    #[inline]
+    #[inline(always)]
     pub fn read_medium(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
         let byte1: usize = first as usize;
         let byte2: usize = reader.read_u8()?.into();
@@ -115,7 +115,7 @@ impl Reference {
     ///
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining three bytes from the `reader`.
-    #[inline]
+    #[inline(always)]
     pub fn read_long(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
         let byte1: usize = first as usize;
         let byte2: usize = reader.read_u8()?.into();
@@ -135,14 +135,14 @@ impl Reference {
     }
 
     /// Reference read implementation of literal commands. See [Reference] for specification
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn read_literal(first: u8) -> Command {
         Command::Literal(((first & 0b0001_1111) << 2) + 4)
     }
 
     /// Reference read implementation of stopcodes. See [Reference] for specification
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn read_stop(first: u8) -> Command {
         Command::Stop(first & 0b0000_0011)
@@ -258,6 +258,7 @@ impl Mode for Reference {
         long_length: (5, 1028),
     };
 
+    #[inline(always)]
     fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Command> {
         let first = reader.read_u8()?;
 

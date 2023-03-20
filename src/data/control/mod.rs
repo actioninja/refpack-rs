@@ -189,6 +189,7 @@ impl Command {
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
     /// attempting to read data
+    #[inline(always)]
     pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> RefPackResult<Self> {
         M::read(reader)
     }
