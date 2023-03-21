@@ -7,7 +7,8 @@
 
 //! control codes utilized by compression and decompression
 
-pub(crate) mod iterator;
+#[cfg(test)]
+mod iterator;
 pub mod mode;
 
 use std::io::{Read, Seek, Write};
