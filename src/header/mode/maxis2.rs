@@ -65,7 +65,11 @@ impl Mode for Maxis2 {
 
     fn write<W: Write + Seek>(header: Header, writer: &mut W) -> RefPackResult<()> {
         let big_decompressed = header.decompressed_length > 0xFF_FF_FF;
-        writer.write_u8(if big_decompressed { Flags::Big } else { Flags::Little } as u8)?;
+        writer.write_u8(if big_decompressed {
+            Flags::Big
+        } else {
+            Flags::Little
+        } as u8)?;
         writer.write_u8(header::MAGIC)?;
         if big_decompressed {
             writer.write_u32::<BigEndian>(header.decompressed_length)?;
@@ -94,7 +98,10 @@ mod test {
         let mut write_cur = Cursor::new(&mut write_buf);
         header.write::<Maxis2>(&mut write_cur).unwrap();
 
-        prop_assert_eq!(write_buf.len(), Maxis2::length(header.decompressed_length as usize));
+        prop_assert_eq!(
+            write_buf.len(),
+            Maxis2::length(header.decompressed_length as usize)
+        );
 
         let mut read_cur = Cursor::new(&mut write_buf);
         let got = Header::read::<Maxis2>(&mut read_cur).unwrap();
