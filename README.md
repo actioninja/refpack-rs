@@ -21,8 +21,7 @@ Put simply, this means that you get the benefit of being able to use any format 
 without any performance overhead from dynamic dispatch, as well as being able to implement your
 own arbitrary formats that are still compatible with the same compression algorithms.
 
-More details on the refpack format can be found at [the niotso wiki](http://wiki.niotso.org/RefPack).
-The short explanation is that RefPack is a compression scheme loosely based on LZ77 compression.
+More details on the refpack format can be found at [the niotso wiki](http://wiki.niotso.org/RefPack). The short explanation is that RefPack is a compression scheme loosely based on LZ77 compression.
 
 The [Original Refpack Implementation](http://download.wcnews.com/files/documents/sourcecode/shadowforce/transfer/asommers/mfcapp_src/engine/compress/RefPack.cpp)
 was referenced to ensure proper compatibility
@@ -39,18 +38,19 @@ that implements `std::io::Read` and `std::io::Write`, respectively.
 while `compress` will read in the provided length.
 
 all compression and decompression functions accept one generic argument constrained to the
-[Format](https://docs.rs/refpack/latest/refpack/format/trait.Format.html) trait.
-Implementations should be a unit or "unconstructable"
+[Format](https://docs.rs/refpack/latest/refpack/format/trait.Format.html) trait. Implementations should be a unit or "unconstructable"
 (one inaccessible `()` member to prevent construction), and define a pair of how to interpret
+
 
 ### Implementations
 
-| Format                                                                           | Games                                    | Control   | Header    |
-|----------------------------------------------------------------------------------|------------------------------------------|-----------|-----------|
+| Format | Games | Control | Header |
+|--------|-------|---------|--------|
 | [Reference](https://docs.rs/refpack/latest/refpack/format/struct.Reference.html) | Various 90s Origin Software and EA games | Reference | Reference |
-| [TheSims12](https://docs.rs/refpack/latest/refpack/format/struct.TheSims12.html) | The Sims, The Sims Online, The Sims 2    | Reference | Maxis     |
-| [Simcity4](https://docs.rs/refpack/latest/refpack/format/struct.Simcity4.html)   | Simcity 4                                | Simcity4  | Maxis     |
-| [TheSims34](https://docs.rs/refpack/latest/refpack/format/struct.TheSims34.html) | The Sims 3, The Sims 4                   | Reference | Maxis2    |
+| [TheSims12](https://docs.rs/refpack/latest/refpack/format/struct.TheSims12.html) | The Sims, The Sims Online, The Sims 2 | Reference | Maxis |
+| [Simcity4](https://docs.rs/refpack/latest/refpack/format/struct.Simcity4.html) | Simcity 4 | Simcity4 | Maxis |
+| [TheSims34](https://docs.rs/refpack/latest/refpack/format/struct.TheSims34.html) | The Sims 3, The Sims 4 | Reference | Maxis2 |
+
 
 #### Example
 
@@ -59,11 +59,9 @@ use std::io::Cursor;
 use std::io::Seek;
 use refpack::format::Reference;
 
-fn main() {
-    let mut source_reader = Cursor::new(b"Hello World!".to_vec());
-    let mut out_buf = Cursor::new(vec![]);
-    refpack::compress::<Reference>(source_reader.get_ref().len(), &mut source_reader, &mut out_buf).unwrap();
-}
+let mut source_reader = Cursor::new(b"Hello World!".to_vec());
+let mut out_buf = Cursor::new(vec![]);
+refpack::compress::<Reference>(source_reader.get_ref().len(), &mut source_reader, &mut out_buf).unwrap();
 ```
 
 The easy variants are `compress_easy` and `decompress_easy`, which take a `&[u8]` and return
