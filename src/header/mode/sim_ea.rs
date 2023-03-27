@@ -12,9 +12,11 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use crate::header::mode::Mode;
 use crate::header::Header;
 use crate::{header, RefPackError, RefPackResult};
+use crate::RefPackError::BadFlags;
 
 /// Header used by many Maxis and SimEA games
-/// Exactly the same as [Maxis](crate::header::mode::Maxis) but without the compressed length u32
+/// The same as [Maxis](crate::header::mode::Maxis) but without the compressed length u32,
+/// and the use of the flags field
 ///
 /// ## Structure
 /// - u8: Flags field
@@ -24,12 +26,34 @@ pub struct SimEA {
     _private: (),
 }
 
-/// The decompressed length flag
-/// Taken from http://simswiki.info/wiki.php?title=Sims_3:DBPF/Compression#Compression_Types
-enum Flags {
-    Little = 0x10,
-    LittleRestricted = 0x40,
-    Big = 0x80,
+/// The header flags
+/// Based on http://simswiki.info/wiki.php?title=Sims_3:DBPF/Compression#Compression_Types
+/// and http://wiki.niotso.org/RefPack#Header
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+struct Flags {
+    big_decompressed: bool,
+    restricted: bool,
+    compressed_size_present: bool,
+}
+
+impl Flags {
+    fn read(data: u8) -> RefPackResult<Self> {
+        if (data & 0b0010_1110) > 0 {
+            Err(BadFlags(data))
+        } else {
+            Ok(Self {
+                big_decompressed: ((data >> 7) & 1) > 0,
+                restricted: ((data >> 6) & 1) > 0,
+                compressed_size_present: (data & 1) > 0,
+            })
+        }
+    }
+
+    fn write(self) -> u8 {
+        (self.big_decompressed as u8) << 7 |
+            (self.restricted as u8) << 6 |
+            (self.compressed_size_present as u8)
+    }
 }
 
 impl Mode for SimEA {
@@ -42,20 +66,16 @@ impl Mode for SimEA {
     }
 
     fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Header> {
-        let flags = match reader.read_u8()? {
-            x if x == Flags::Little as u8 => Flags::Little,
-            x if x == Flags::LittleRestricted as u8 => Flags::LittleRestricted,
-            x if x == Flags::Big as u8 => Flags::Big,
-            x => return Err(RefPackError::BadMagic(x)),
-        };
+        let flags = Flags::read(reader.read_u8()?)?;
         let magic = reader.read_u8()?;
         if magic != header::MAGIC {
             return Err(RefPackError::BadMagic(magic));
         }
         //Inexplicably this weird three byte number is stored Big Endian
-        let decompressed_length = match flags {
-            Flags::Little | Flags::LittleRestricted => reader.read_u24::<BigEndian>()?,
-            Flags::Big => reader.read_u32::<BigEndian>()?,
+        let decompressed_length = if flags.big_decompressed {
+            reader.read_u32::<BigEndian>()?
+        } else {
+            reader.read_u24::<BigEndian>()?
         };
         Ok(Header {
             decompressed_length,
@@ -65,11 +85,11 @@ impl Mode for SimEA {
 
     fn write<W: Write + Seek>(header: Header, writer: &mut W) -> RefPackResult<()> {
         let big_decompressed = header.decompressed_length > 0xFF_FF_FF;
-        writer.write_u8(if big_decompressed {
-            Flags::Big
-        } else {
-            Flags::Little
-        } as u8)?;
+        writer.write_u8(Flags {
+            big_decompressed,
+            restricted: false,
+            compressed_size_present: false,
+        }.write())?;
         writer.write_u8(header::MAGIC)?;
         if big_decompressed {
             writer.write_u32::<BigEndian>(header.decompressed_length)?;
