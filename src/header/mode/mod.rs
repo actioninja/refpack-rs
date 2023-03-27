@@ -7,14 +7,14 @@
 
 //! possible modes to use for header encoding and decoding
 mod maxis;
-mod sim_ea;
 mod reference;
+mod sim_ea;
 
 use std::io::{Read, Seek, Write};
 
 pub use maxis::Maxis;
-pub use sim_ea::SimEA;
 pub use reference::Reference;
+pub use sim_ea::SimEA;
 
 use crate::header::Header;
 use crate::RefPackResult;

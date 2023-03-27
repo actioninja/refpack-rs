@@ -11,8 +11,8 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 use crate::header::mode::Mode;
 use crate::header::Header;
-use crate::{header, RefPackError, RefPackResult};
 use crate::RefPackError::BadFlags;
+use crate::{header, RefPackError, RefPackResult};
 
 /// Header used by many Maxis and SimEA games
 /// The same as [Maxis](crate::header::mode::Maxis) but without the compressed length u32,
@@ -50,9 +50,9 @@ impl Flags {
     }
 
     fn write(self) -> u8 {
-        (self.big_decompressed as u8) << 7 |
-            (self.restricted as u8) << 6 |
-            (self.compressed_size_present as u8)
+        (self.big_decompressed as u8) << 7
+            | (self.restricted as u8) << 6
+            | (self.compressed_size_present as u8)
     }
 }
 
@@ -85,11 +85,14 @@ impl Mode for SimEA {
 
     fn write<W: Write + Seek>(header: Header, writer: &mut W) -> RefPackResult<()> {
         let big_decompressed = header.decompressed_length > 0xFF_FF_FF;
-        writer.write_u8(Flags {
-            big_decompressed,
-            restricted: false,
-            compressed_size_present: false,
-        }.write())?;
+        writer.write_u8(
+            Flags {
+                big_decompressed,
+                restricted: false,
+                compressed_size_present: false,
+            }
+            .write(),
+        )?;
         writer.write_u8(header::MAGIC)?;
         if big_decompressed {
             writer.write_u32::<BigEndian>(header.decompressed_length)?;

@@ -10,7 +10,7 @@
 //!
 use crate::data::control::mode::{Reference as ReferenceControl, Simcity4 as Simcity4Control};
 use crate::data::control::Mode as ControlMode;
-use crate::header::mode::{Maxis, SimEA, Mode as HeaderMode, Reference as ReferenceHeader};
+use crate::header::mode::{Maxis, Mode as HeaderMode, Reference as ReferenceHeader, SimEA};
 
 /// Trait that represents a pair of Header Modes and Control Modes that define a compression format.
 ///
