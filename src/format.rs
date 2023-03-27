@@ -10,7 +10,7 @@
 //!
 use crate::data::control::mode::{Reference as ReferenceControl, Simcity4 as Simcity4Control};
 use crate::data::control::Mode as ControlMode;
-use crate::header::mode::{Maxis, Maxis2, Mode as HeaderMode, Reference as ReferenceHeader};
+use crate::header::mode::{Maxis, SimEA, Mode as HeaderMode, Reference as ReferenceHeader};
 
 /// Trait that represents a pair of Header Modes and Control Modes that define a compression format.
 ///
@@ -72,7 +72,7 @@ impl Format for Simcity4 {
 }
 
 /// Format utilized by Simcity 4.
-/// - Uses new [Maxis2](crate::header::mode::Maxis2) header
+/// - Uses new [Maxis2](crate::header::mode::SimEA) header
 /// - Standard control codes ([Reference](crate::data::control::mode::Reference))
 pub struct TheSims34 {
     // trick to prevent struct from ever being constructed. These are "markers" intended to be used
@@ -81,6 +81,6 @@ pub struct TheSims34 {
 }
 
 impl Format for TheSims34 {
-    type HeaderMode = Maxis2;
+    type HeaderMode = SimEA;
     type ControlMode = ReferenceControl;
 }

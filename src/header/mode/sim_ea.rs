@@ -20,7 +20,7 @@ use crate::{header, RefPackError, RefPackResult};
 /// - u8: Flags field
 /// - Magic Number: 0xFB
 /// - Big Endian u24/u32: Decompressed Length
-pub struct Maxis2 {
+pub struct SimEA {
     _private: (),
 }
 
@@ -32,7 +32,7 @@ enum Flags {
     Big = 0x80,
 }
 
-impl Mode for Maxis2 {
+impl Mode for SimEA {
     fn length(decompressed_size: usize) -> usize {
         if decompressed_size > 0xFF_FF_FF {
             6
@@ -96,15 +96,15 @@ mod test {
     ) {
         let mut write_buf = vec![];
         let mut write_cur = Cursor::new(&mut write_buf);
-        header.write::<Maxis2>(&mut write_cur).unwrap();
+        header.write::<SimEA>(&mut write_cur).unwrap();
 
         prop_assert_eq!(
             write_buf.len(),
-            Maxis2::length(header.decompressed_length as usize)
+            SimEA::length(header.decompressed_length as usize)
         );
 
         let mut read_cur = Cursor::new(&mut write_buf);
-        let got = Header::read::<Maxis2>(&mut read_cur).unwrap();
+        let got = Header::read::<SimEA>(&mut read_cur).unwrap();
 
         prop_assert_eq!(header, got);
     }
