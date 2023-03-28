@@ -39,7 +39,10 @@ impl Mode for Maxis {
         } else {
             Some(compressed_length_prewrap)
         };
-        let _flags = reader.read_u8()?;
+        let flags = reader.read_u8()?;
+        if flags != FLAGS {
+            return Err(RefPackError::BadFlags(flags));
+        }
         let magic = reader.read_u8()?;
         if magic != header::MAGIC {
             return Err(RefPackError::BadMagic(magic));
