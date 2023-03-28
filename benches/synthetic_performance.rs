@@ -5,14 +5,14 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+use std::hint::black_box;
 use std::io::Cursor;
 use std::iter;
 
 use criterion::measurement::WallTime;
-use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion, Throughput,
-};
+use criterion::{criterion_group, criterion_main, BenchmarkGroup, Criterion, Throughput};
 use rand::prelude::*;
+use refpack::format::TheSims12;
 use refpack::{compress, decompress, easy_compress, easy_decompress};
 
 const CONST_BENCH_LENGTH: usize = 8096;
@@ -35,21 +35,21 @@ fn random_increasing_vecs(num: usize, increase_interval: usize) -> Vec<Vec<u8>> 
 fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     let size = input_vec.len();
     group.bench_with_input(format!("easy_compress ({size})"), &input_vec, |b, i| {
-        b.iter(|| easy_compress(black_box(i)))
+        b.iter(|| easy_compress::<TheSims12>(black_box(i)))
     });
 
     group.bench_with_input(format!("compress ({size})"), &input_vec, |b, i| {
         b.iter(|| {
             let mut in_buf = Cursor::new(i);
             let mut out_buf = Cursor::new(vec![]);
-            compress(size, black_box(&mut in_buf), black_box(&mut out_buf))
+            compress::<TheSims12>(size, black_box(&mut in_buf), black_box(&mut out_buf))
         })
     });
 
     group.bench_with_input(format!("symmetrical easy ({size})"), &input_vec, |b, i| {
         b.iter(|| {
-            let compressed = easy_compress(i).unwrap();
-            let decompressed = easy_decompress(black_box(&compressed)).unwrap();
+            let compressed = easy_compress::<TheSims12>(i).unwrap();
+            let decompressed = easy_decompress::<TheSims12>(black_box(&compressed)).unwrap();
             black_box(decompressed);
         })
     });
@@ -60,12 +60,12 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
             let mut out_buf = Cursor::new(vec![]);
             let mut final_buf = Cursor::new(vec![]);
 
-            let _ = compress(
+            let _ = compress::<TheSims12>(
                 CONST_BENCH_LENGTH,
                 black_box(&mut in_buf),
                 black_box(&mut out_buf),
             );
-            let _ = decompress(black_box(&mut out_buf), black_box(&mut final_buf));
+            let _ = decompress::<TheSims12>(black_box(&mut out_buf), black_box(&mut final_buf));
         })
     });
 }

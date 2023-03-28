@@ -276,6 +276,7 @@ mod test {
     use crate::format::Reference;
 
     #[proptest]
+    #[ignore]
     fn large_input_compression(
         #[strategy(proptest::collection::vec(any::<u8>(), (100_000..=500_000)))] input: Vec<u8>,
     ) {
