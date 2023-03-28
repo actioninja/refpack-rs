@@ -8,11 +8,13 @@
 //! possible modes to use for header encoding and decoding
 mod maxis;
 mod reference;
+mod sim_ea;
 
 use std::io::{Read, Seek, Write};
 
 pub use maxis::Maxis;
 pub use reference::Reference;
+pub use sim_ea::SimEA;
 
 use crate::header::Header;
 use crate::RefPackResult;
@@ -28,7 +30,7 @@ use crate::RefPackResult;
 /// fed in to read and then back out of write should yield the same result.
 pub trait Mode {
     /// Length of the header, used by some parsing
-    const LENGTH: usize;
+    fn length(decompressed_size: usize) -> usize;
 
     /// Reads from a `Read + Seek` reader and attempts to parse a header at the current position.
     /// # Errors

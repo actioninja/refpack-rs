@@ -161,9 +161,9 @@ impl Reference {
         let length_adjusted = length - 3;
         let offset_adjusted = offset - 1;
 
-        let first = (((offset_adjusted & 0b0000_0011_0000_0000) >> 3) as u8
+        let first = ((offset_adjusted & 0b0000_0011_0000_0000) >> 3) as u8
             | (length_adjusted & 0b0000_0111) << 2
-            | literal & 0b0000_0011) as u8;
+            | literal & 0b0000_0011;
         let second = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
 
         writer.write_u8(first)?;

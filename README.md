@@ -1,4 +1,5 @@
 # refpack-rs
+
 [![Rust Build and Test](https://github.com/actioninja/refpack-rs/actions/workflows/check-and-test.yml/badge.svg)](https://github.com/actioninja/refpack-rs/actions/workflows/check-and-test.yml)
 ![docs.rs](https://img.shields.io/docsrs/refpack)
 ![Crates.io](https://img.shields.io/crates/v/refpack)
@@ -48,6 +49,7 @@ all compression and decompression functions accept one generic argument constrai
 | [Reference](https://docs.rs/refpack/latest/refpack/format/struct.Reference.html) | Various 90s Origin Software and EA games | Reference | Reference |
 | [TheSims12](https://docs.rs/refpack/latest/refpack/format/struct.TheSims12.html) | The Sims, The Sims Online, The Sims 2 | Reference | Maxis |
 | [Simcity4](https://docs.rs/refpack/latest/refpack/format/struct.Simcity4.html) | Simcity 4 | Simcity4 | Maxis |
+| [TheSims34](https://docs.rs/refpack/latest/refpack/format/struct.TheSims34.html) | The Sims 3, The Sims 4 | Reference | SimEA |
 
 
 #### Example

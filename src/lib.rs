@@ -44,6 +44,7 @@
 //! | [Reference](crate::format::Reference) | Various 90s Origin Software and EA games | [Reference](crate::data::control::mode::Reference) | [Reference](crate::header::mode::Reference) |
 //! | [TheSims12](crate::format::TheSims12) | The Sims, The Sims Online, The Sims 2 | [Reference](crate::data::control::mode::Reference) | [Maxis](crate::header::mode::Maxis) |
 //! | [Simcity4](crate::format::Simcity4) | Simcity 4 | [Simcity4](crate::data::control::mode::Simcity4) | [Maxis](crate::header::mode::Maxis) |
+//! | [TheSims34](crate::format::TheSims34) | The Sims 3, The Sims 4 | [Reference](crate::data::control::mode::Reference) | [SimEA](crate::header::mode::SimEA) |
 //!
 //!
 //! ### Example
@@ -88,3 +89,53 @@ pub mod header;
 pub use crate::data::compression::{compress, easy_compress};
 pub use crate::data::decompression::{decompress, easy_decompress};
 pub use crate::error::{Error as RefPackError, Result as RefPackResult};
+
+#[cfg(test)]
+mod test {
+    use proptest::collection::vec;
+    use proptest::num::u8;
+    use proptest::prop_assert_eq;
+    use test_strategy::proptest;
+
+    use crate::format::{Reference, Simcity4, TheSims12, TheSims34};
+    use crate::{easy_compress, easy_decompress};
+
+    #[proptest]
+    fn reference_symmetrical_read_write(#[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
+        let compressed = easy_compress::<Reference>(&data).unwrap();
+
+        let got = easy_decompress::<Reference>(&compressed).unwrap();
+
+        prop_assert_eq!(data, got);
+    }
+
+    #[proptest]
+    fn sims12_symmetrical_read_write(#[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
+        let compressed = easy_compress::<TheSims12>(&data).unwrap();
+
+        let got = easy_decompress::<TheSims12>(&compressed).unwrap();
+
+        prop_assert_eq!(data, got);
+    }
+
+    #[proptest]
+    fn simcity4_symmetrical_read_write(#[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
+        let compressed = easy_compress::<Simcity4>(&data).unwrap();
+
+        let got = easy_decompress::<Simcity4>(&compressed).unwrap();
+
+        prop_assert_eq!(data, got);
+    }
+
+    #[proptest]
+    fn sims34_symmetrical_read_write(
+        // this should include inputs of > 16mb, but testing those inputs is extremely slow
+        #[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>,
+    ) {
+        let compressed = easy_compress::<TheSims34>(&data).unwrap();
+
+        let got = easy_decompress::<TheSims34>(&compressed).unwrap();
+
+        prop_assert_eq!(data, got);
+    }
+}

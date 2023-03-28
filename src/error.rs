@@ -13,6 +13,9 @@ pub enum Error {
     /// Error for when no input is provided to a compressor function
     #[error("No input provided to compression")]
     EmptyInput,
+    /// Error that occurs when a flag was set in the header flags that is not supported
+    #[error("Unknown flag was set in compression header `{0:08b}`")]
+    BadFlags(u8),
     /// Error indicating that the header failed to read the magic where it expected it. Location
     /// depends on the exact implementation.
     /// u16: What was read instead of the magic value

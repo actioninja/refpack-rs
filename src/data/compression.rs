@@ -223,7 +223,7 @@ pub fn compress<F: Format>(
 
     let controls = encode_stream::<F>(reader, length)?;
 
-    let header_length = F::HeaderMode::LENGTH;
+    let header_length = F::HeaderMode::length(length);
 
     let header_position = writer.stream_position()?;
     let data_start_pos = writer.seek(SeekFrom::Current(header_length as i64))?;
