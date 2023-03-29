@@ -6,14 +6,17 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 use std::io::Cursor;
-use std::{fs, iter};
 use std::time::Duration;
+use std::{fs, iter};
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkGroup, Criterion, Throughput, BenchmarkId, SamplingMode};
 use criterion::measurement::WallTime;
+use criterion::{
+    black_box, criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion,
+    SamplingMode, Throughput,
+};
 use rand::prelude::*;
-use refpack::{compress, decompress, easy_compress, easy_decompress};
 use refpack::format::Reference;
+use refpack::{compress, decompress, easy_compress, easy_decompress};
 
 const CONST_BENCH_LENGTH: usize = 8096;
 
@@ -28,8 +31,8 @@ fn random_increasing_vecs(num: usize, increase_interval: usize) -> Vec<Vec<u8>> 
         cur_size += increase_interval;
         random_vec(tmp)
     })
-        .take(num)
-        .collect()
+    .take(num)
+    .collect()
 }
 
 fn repeating_vec(num: usize) -> Vec<u8> {
@@ -38,9 +41,11 @@ fn repeating_vec(num: usize) -> Vec<u8> {
 
 fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     let size = input_vec.len();
-    group.bench_with_input(BenchmarkId::new("easy_compress", size), &input_vec, |b, i| {
-        b.iter(|| easy_compress::<Reference>(black_box(i)))
-    });
+    group.bench_with_input(
+        BenchmarkId::new("easy_compress", size),
+        &input_vec,
+        |b, i| b.iter(|| easy_compress::<Reference>(black_box(i))),
+    );
 
     group.bench_with_input(BenchmarkId::new("compress", size), &input_vec, |b, i| {
         b.iter(|| {
@@ -52,9 +57,11 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
 
     let compressed = easy_compress::<Reference>(input_vec).unwrap();
 
-    group.bench_with_input(BenchmarkId::new("easy_decompress", size), &compressed, |b, i| {
-        b.iter(|| black_box(easy_decompress::<Reference>(black_box(i))))
-    });
+    group.bench_with_input(
+        BenchmarkId::new("easy_decompress", size),
+        &compressed,
+        |b, i| b.iter(|| black_box(easy_decompress::<Reference>(black_box(i)))),
+    );
 
     group.bench_with_input(BenchmarkId::new("decompress", size), &compressed, |b, i| {
         b.iter(|| {
@@ -64,13 +71,17 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
         })
     });
 
-    group.bench_with_input(BenchmarkId::new("symmetrical easy", size), &input_vec, |b, i| {
-        b.iter(|| {
-            let compressed = easy_compress::<Reference>(i).unwrap();
-            let decompressed = easy_decompress::<Reference>(black_box(&compressed)).unwrap();
-            black_box(decompressed);
-        })
-    });
+    group.bench_with_input(
+        BenchmarkId::new("symmetrical easy", size),
+        &input_vec,
+        |b, i| {
+            b.iter(|| {
+                let compressed = easy_compress::<Reference>(i).unwrap();
+                let decompressed = easy_decompress::<Reference>(black_box(&compressed)).unwrap();
+                black_box(decompressed);
+            })
+        },
+    );
 
     group.bench_with_input(BenchmarkId::new("symmetrical", size), &input_vec, |b, i| {
         b.iter(|| {
@@ -78,11 +89,7 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
             let mut out_buf = Cursor::new(vec![]);
             let mut final_buf = Cursor::new(vec![]);
 
-            let _ = compress::<Reference>(
-                size,
-                black_box(&mut in_buf),
-                black_box(&mut out_buf),
-            );
+            let _ = compress::<Reference>(size, black_box(&mut in_buf), black_box(&mut out_buf));
             out_buf.set_position(0);
             let _ = decompress::<Reference>(black_box(&mut out_buf), black_box(&mut final_buf));
         })
@@ -140,7 +147,8 @@ fn repeating_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
 }
 
 fn files_bench(c: &mut Criterion<WallTime>) {
-    let mut entries = fs::read_dir("benches/bench_files/").unwrap()
+    let mut entries = fs::read_dir("benches/bench_files/")
+        .unwrap()
         .map(|res| res.unwrap().path())
         .collect::<Vec<_>>();
 

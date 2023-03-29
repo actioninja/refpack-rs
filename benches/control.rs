@@ -1,20 +1,21 @@
 use std::io::Cursor;
-use criterion::{Criterion, criterion_group, criterion_main, Throughput};
+
 use criterion::measurement::WallTime;
+use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use refpack::data::control::{Command, Control, Mode};
 use refpack::easy_decompress;
 use refpack::format::{Format, Reference};
-use refpack::header::Header;
 use refpack::header::mode::Mode as HeaderMode;
+use refpack::header::Header;
 
 const CONST_BENCH_LENGTH: usize = 8096;
 
 fn repeating_short_control_vec<M: Mode>(repeats: usize) -> Vec<Control> {
     let mut ret = vec![Control::new_literal_block::<M>(&[0; 4])];
     ret.append(&mut vec![
-        Control::new(Command::new::<M>(1, 1, 0),
-                     vec![]);
-        repeats]);
+        Control::new(Command::new::<M>(1, 1, 0), vec![]);
+        repeats
+    ]);
     ret.push(Control::new_stop::<M>(&[]));
     ret
 }
@@ -24,7 +25,7 @@ fn repeating_short_control_data<F: Format>(repeats: usize) -> Vec<u8> {
 
     let controls = repeating_short_control_vec::<F::ControlMode>(repeats);
 
-    let header_length = F::HeaderMode::LENGTH;
+    let header_length = F::HeaderMode::length(repeats + 1);
 
     writer.set_position(header_length as u64);
 

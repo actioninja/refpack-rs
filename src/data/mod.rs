@@ -9,6 +9,7 @@
 //! the actual compression algorithms themselves, control codes, etc.
 
 use std::io::{Read, Seek};
+
 use crate::RefPackError;
 
 pub mod compression;
@@ -38,8 +39,11 @@ pub(crate) fn rle_decode_fixed<T>(
     buffer: &mut [T],
     mut position: usize,
     mut offset: usize,
-    mut length: usize) -> Result<usize, RefPackError>
-    where T: Copy {
+    mut length: usize,
+) -> Result<usize, RefPackError>
+where
+    T: Copy,
+{
     if offset == 0 {
         return Err(RefPackError::BadOffset);
     }
@@ -59,7 +63,10 @@ pub(crate) fn rle_decode_fixed<T>(
         offset *= 2;
     }
 
-    buffer.copy_within(copy_fragment_start..(copy_fragment_start + length), position);
+    buffer.copy_within(
+        copy_fragment_start..(copy_fragment_start + length),
+        position,
+    );
     position += length;
 
     Ok(position)
@@ -78,7 +85,8 @@ pub(crate) fn copy_from_reader(
     buffer: &mut [u8],
     reader: &mut (impl Read + Seek),
     position: usize,
-    length: usize) -> Result<usize, RefPackError> {
+    length: usize,
+) -> Result<usize, RefPackError> {
     if position + length > buffer.len() {
         return Err(RefPackError::BadLength(position + length - buffer.len()));
     }

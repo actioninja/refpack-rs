@@ -6,9 +6,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 //! Decompression parsing, algorithms, and functionality
-use std::io::{Cursor, Read, Seek, Write};
-use crate::data::control::Command;
+use std::io::{Cursor, ErrorKind, Read, Seek, SeekFrom, Write};
 
+use crate::data::control::Command;
 use crate::data::{copy_from_reader, rle_decode_fixed};
 use crate::format::Format;
 use crate::header::Header;
@@ -18,7 +18,7 @@ use crate::RefPackError;
 // since that way the buffer doesn't have to be copied,
 // this function is used to reach optimal performance
 fn decompress_internal<F: Format>(
-    reader: &mut (impl Read + Seek)
+    reader: &mut (impl Read + Seek),
 ) -> Result<Vec<u8>, RefPackError> {
     let Header {
         decompressed_length,
@@ -32,38 +32,72 @@ fn decompress_internal<F: Format>(
         let command = Command::read::<F::ControlMode>(reader)?;
 
         match command {
-            Command::Short { offset, length, literal } |
-            Command::Medium { offset, length, literal } => {
+            Command::Short {
+                offset,
+                length,
+                literal,
+            }
+            | Command::Medium {
+                offset,
+                length,
+                literal,
+            } => {
                 if literal > 0 {
-                    position = copy_from_reader(&mut decompression_buffer, reader, position, literal as usize)?;
+                    position = copy_from_reader(
+                        &mut decompression_buffer,
+                        reader,
+                        position,
+                        literal as usize,
+                    )?;
                 }
-                position = rle_decode_fixed(&mut decompression_buffer, position, offset as usize, length as usize)?;
+                position = rle_decode_fixed(
+                    &mut decompression_buffer,
+                    position,
+                    offset as usize,
+                    length as usize,
+                )?;
                 true
             }
-            Command::Long { offset, length, literal } => {
+            Command::Long {
+                offset,
+                length,
+                literal,
+            } => {
                 if literal > 0 {
-                    position = copy_from_reader(&mut decompression_buffer, reader, position, literal as usize)?;
+                    position = copy_from_reader(
+                        &mut decompression_buffer,
+                        reader,
+                        position,
+                        literal as usize,
+                    )?;
                 }
-                position = rle_decode_fixed(&mut decompression_buffer, position, offset as usize, length as usize)?;
+                position = rle_decode_fixed(
+                    &mut decompression_buffer,
+                    position,
+                    offset as usize,
+                    length as usize,
+                )?;
                 true
             }
             Command::Literal(literal) => {
-                position = copy_from_reader(&mut decompression_buffer, reader, position, literal as usize)?;
+                position = copy_from_reader(
+                    &mut decompression_buffer,
+                    reader,
+                    position,
+                    literal as usize,
+                )?;
                 true
             }
             Command::Stop(literal) => {
-                copy_from_reader(&mut decompression_buffer, reader, position, literal as usize)?;
+                copy_from_reader(
+                    &mut decompression_buffer,
+                    reader,
+                    position,
+                    literal as usize,
+                )?;
                 false
             }
         }
-
-        /*position = copy_from_reader(&mut decompression_buffer, reader, position, command.num_of_literal())?;
-
-        if let Some((offset, length)) = command.offset_copy() {
-            position = rle_decode_fixed(&mut decompression_buffer, position, offset, length)?;
-        }
-
-        !command.is_stop()*/
     } {}
 
     Ok(decompression_buffer)
