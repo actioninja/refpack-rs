@@ -80,6 +80,8 @@
 #![allow(clippy::too_many_lines)]
 // causes weirdness with header and reader
 #![allow(clippy::similar_names)]
+// all uses of #[inline(always)] have been benchmarked thoroughly
+#![allow(clippy::inline_always)]
 
 pub mod data;
 mod error;

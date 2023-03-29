@@ -148,14 +148,13 @@ impl Command {
     /// Get number of literal bytes on the command, if they have any
     /// Returns `None` if the length is 0
     #[must_use]
-    #[inline(always)]
     pub fn num_of_literal(self) -> Option<usize> {
         let num = match self {
             Command::Short { literal, .. }
             | Command::Medium { literal, .. }
-            | Command::Long { literal, .. } => literal,
-            Command::Literal(literal) => literal,
-            Command::Stop(literal) => literal,
+            | Command::Long { literal, .. }
+            | Command::Literal(literal)
+            | Command::Stop(literal) => literal,
         };
         if num == 0 {
             None
@@ -168,7 +167,6 @@ impl Command {
     ///
     /// Returns `None` if `self` is not a copy command.
     #[must_use]
-    #[inline(always)]
     pub fn offset_copy(self) -> Option<(usize, usize)> {
         match self {
             Command::Short { offset, length, .. } | Command::Medium { offset, length, .. } => {
@@ -181,7 +179,6 @@ impl Command {
 
     /// Returns true if the command is a stopcode, false if it is not.
     #[must_use]
-    #[inline(always)]
     pub fn is_stop(self) -> bool {
         matches!(self, Command::Stop(_))
     }

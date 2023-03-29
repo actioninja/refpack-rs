@@ -43,6 +43,7 @@ impl Mode for Simcity4 {
         long_length: Reference::SIZES.long_length,
     };
 
+    #[inline(always)]
     fn read<R: Read + Seek>(reader: &mut R) -> Result<Command, RefPackError> {
         let first = reader.read_u8()?;
 

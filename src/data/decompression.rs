@@ -6,7 +6,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 //! Decompression parsing, algorithms, and functionality
-use std::io::{Cursor, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::io::{Cursor, Read, Seek, Write};
 
 use crate::data::control::Command;
 use crate::data::{copy_from_reader, rle_decode_fixed};
