@@ -28,7 +28,7 @@ fn decompress_internal<F: Format>(
     let mut decompression_buffer = vec![0; decompressed_length as usize];
     let mut position = 0usize;
 
-    while {
+    loop {
         let command = Command::read::<F::ControlMode>(reader)?;
 
         match command {
@@ -56,7 +56,6 @@ fn decompress_internal<F: Format>(
                     offset as usize,
                     length as usize,
                 )?;
-                true
             }
             Command::Long {
                 offset,
@@ -77,7 +76,6 @@ fn decompress_internal<F: Format>(
                     offset as usize,
                     length as usize,
                 )?;
-                true
             }
             Command::Literal(literal) => {
                 position = copy_from_reader(
@@ -86,7 +84,6 @@ fn decompress_internal<F: Format>(
                     position,
                     literal as usize,
                 )?;
-                true
             }
             Command::Stop(literal) => {
                 copy_from_reader(
@@ -95,10 +92,10 @@ fn decompress_internal<F: Format>(
                     position,
                     literal as usize,
                 )?;
-                false
+                break;
             }
         }
-    } {}
+    }
 
     Ok(decompression_buffer)
 }
