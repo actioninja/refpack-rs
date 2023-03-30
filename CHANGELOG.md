@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.0.0] - 2023-03-28
 
 ### Added
-- Support for the `TheSims34` format, which is used by The Sims 3 and The Sims 4.
+- Support for the `TheSims34` format, which is used by The Sims 3 and The Sims 4. -@chieltbest
 
 ### Changed
 - **BREAKING:** Header mode's `LENGTH` field is now replaced by a function that returns the length
