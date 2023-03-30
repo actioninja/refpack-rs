@@ -7,7 +7,8 @@
 
 //! control codes utilized by compression and decompression
 
-pub(crate) mod iterator;
+#[cfg(test)]
+mod iterator;
 pub mod mode;
 
 use std::io::{Read, Seek, Write};
@@ -26,21 +27,21 @@ use crate::{RefPackError, RefPackResult};
 pub enum Command {
     /// Represents a two byte copy command
     Short {
-        offset: u16,
-        length: u8,
         literal: u8,
+        length: u8,
+        offset: u16,
     },
     /// Represents a three byte copy command
     Medium {
-        offset: u16,
-        length: u8,
         literal: u8,
+        length: u8,
+        offset: u16,
     },
     /// Represents a four byte copy command
     Long {
-        offset: u32,
-        length: u16,
         literal: u8,
+        length: u16,
+        offset: u32,
     },
     /// Represents exclusively writing literal bytes from the stream
     ///
@@ -148,24 +149,17 @@ impl Command {
     /// Returns `None` if the length is 0
     #[must_use]
     pub fn num_of_literal(self) -> Option<usize> {
-        match self {
+        let num = match self {
             Command::Short { literal, .. }
             | Command::Medium { literal, .. }
-            | Command::Long { literal, .. } => {
-                if literal == 0 {
-                    None
-                } else {
-                    Some(literal as usize)
-                }
-            }
-            Command::Literal(number) => Some(number as usize),
-            Command::Stop(number) => {
-                if number == 0 {
-                    None
-                } else {
-                    Some(number as usize)
-                }
-            }
+            | Command::Long { literal, .. }
+            | Command::Literal(literal)
+            | Command::Stop(literal) => literal,
+        };
+        if num == 0 {
+            None
+        } else {
+            Some(num as usize)
         }
     }
 
@@ -193,6 +187,7 @@ impl Command {
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
     /// attempting to read data
+    #[inline(always)]
     pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> RefPackResult<Self> {
         M::read(reader)
     }

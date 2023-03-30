@@ -21,6 +21,19 @@ pub enum Error {
     /// u16: What was read instead of the magic value
     #[error("Invalid magic number at compression header `{0:#04X}`")]
     BadMagic(u8),
+    /// Error indicating that offset was 0 in refpack control byte
+    /// this is generally only possible in the Simcity4 data control mode
+    #[error("Offset is 0 in compressed data control command")]
+    BadOffset,
+    /// Error indicating that the requested copy offset was larger than the length of the buffer to copy from
+    /// this means that the copy function would try to copy
+    /// from before the start of the buffer which is an illegal operation
+    #[error("Offset went past start of buffer: buffer length `{0}`, offset `{1}`")]
+    NegativePosition(usize, usize),
+    /// Indicates that the decompressed file would be larger than the indicated size in the header
+    /// this is important to prevent accidental massive memory usage
+    #[error("Decompressed data is larger than decompressed size in header by `{0}` bytes")]
+    BadLength(usize),
     /// Generic IO Error wrapper for when a generic IO error of some sort occurs in relation to
     /// the readers and writers.
     #[error("IO Error")]
