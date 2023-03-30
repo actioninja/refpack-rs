@@ -5,14 +5,15 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+use std::hint::black_box;
 use std::io::Cursor;
 use std::time::Duration;
 use std::{fs, iter};
 
 use criterion::measurement::WallTime;
 use criterion::{
-    black_box, criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion,
-    SamplingMode, Throughput,
+    criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion, SamplingMode,
+    Throughput,
 };
 use rand::prelude::*;
 use refpack::format::Reference;
@@ -44,7 +45,7 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     group.bench_with_input(
         BenchmarkId::new("easy_compress", size),
         &input_vec,
-        |b, i| b.iter(|| easy_compress::<Reference>(black_box(i))),
+        |b, i| b.iter(|| easy_compress::<Reference>(i)),
     );
 
     group.bench_with_input(BenchmarkId::new("compress", size), &input_vec, |b, i| {
@@ -60,7 +61,7 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     group.bench_with_input(
         BenchmarkId::new("easy_decompress", size),
         &compressed,
-        |b, i| b.iter(|| black_box(easy_decompress::<Reference>(black_box(i)))),
+        |b, i| b.iter(|| easy_decompress::<Reference>(i)),
     );
 
     group.bench_with_input(BenchmarkId::new("decompress", size), &compressed, |b, i| {
@@ -77,8 +78,7 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
         |b, i| {
             b.iter(|| {
                 let compressed = easy_compress::<Reference>(i).unwrap();
-                let decompressed = easy_decompress::<Reference>(black_box(&compressed)).unwrap();
-                black_box(decompressed);
+                easy_decompress::<Reference>(black_box(&compressed)).unwrap()
             })
         },
     );
