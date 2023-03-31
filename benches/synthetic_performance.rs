@@ -6,7 +6,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 use std::hint::black_box;
-use std::io::{Cursor, Write};
+use std::io::{Cursor, Read, Write};
 use std::path::Path;
 use std::time::Duration;
 use std::{fs, io, iter};
@@ -157,12 +157,15 @@ fn files_bench(c: &mut Criterion<WallTime>) {
         //create dir
         let _ = fs::create_dir(Path::new(BENCH_FILE_DIR));
         //download files with reqwest
-        let resp = reqwest::blocking::get(BENCH_FILE_URL)
+        let mut buf = vec![];
+        ureq::get(BENCH_FILE_URL)
+            .call()
             .unwrap()
-            .bytes()
+            .into_reader()
+            .read_to_end(&mut buf)
             .unwrap();
         let mut out = fs::File::create("benches/silesia.zip").unwrap();
-        out.write_all(&resp).unwrap();
+        out.write_all(&buf).unwrap();
         println!("Downloaded files");
         //unzip files
         let mut archive =

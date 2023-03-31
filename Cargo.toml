@@ -26,7 +26,7 @@ proptest = "1.0"
 rand = "0.8"
 test-strategy = "0.3"
 refpack-sys = { git = "https://github.com/actioninja/refpack-sys.git" }
-reqwest = { version = "0.11", features = ["blocking"] }
+ureq = "2.6"
 zip = "0.6"
 
 [[bench]]
