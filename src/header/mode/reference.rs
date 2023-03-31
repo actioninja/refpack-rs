@@ -67,4 +67,24 @@ mod test {
 
         prop_assert_eq!(expected, got);
     }
+
+    #[test]
+    fn reads_correctly() {
+        let mut buf = vec![255u8, 0x00, 0x00, 0x00];
+        let mut cur = Cursor::new(&mut buf);
+        let header = Header::read::<Reference>(&mut cur).unwrap();
+        assert_eq!(header.decompressed_length, 255);
+    }
+
+    #[test]
+    fn writes_correctly() {
+        let header = Header {
+            decompressed_length: 255,
+            compressed_length: None,
+        };
+        let mut buf = vec![];
+        let mut cur = Cursor::new(&mut buf);
+        header.write::<Reference>(&mut cur).unwrap();
+        assert_eq!(buf, vec![255u8, 0x00, 0x00, 0x00]);
+    }
 }

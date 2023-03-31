@@ -36,7 +36,7 @@ pub enum Error {
     BadLength(usize),
     /// Generic IO Error wrapper for when a generic IO error of some sort occurs in relation to
     /// the readers and writers.
-    #[error("IO Error")]
+    #[error("IO Error: {0}")]
     Io(#[from] std::io::Error),
 }
 

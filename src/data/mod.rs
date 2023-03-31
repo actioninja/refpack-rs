@@ -101,6 +101,7 @@ mod test {
     use proptest::prelude::*;
     use test_strategy::proptest;
 
+    use super::*;
     use crate::format::Reference;
     use crate::{easy_compress, easy_decompress};
 
@@ -123,5 +124,33 @@ mod test {
         let decompressed = easy_decompress::<Reference>(&compressed).unwrap();
 
         prop_assert_eq!(input, decompressed);
+    }
+
+    mod rle_decode {
+        use super::*;
+
+        #[test]
+        fn errors_on_bad_offset() {
+            let error = rle_decode_fixed(&mut [0], 0, 0, 1).unwrap_err();
+            assert!(matches!(error, RefPackError::BadOffset));
+        }
+
+        #[test]
+        fn errors_on_negative_position() {
+            let error = rle_decode_fixed(&mut [0], 0, 1, 1).unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                "Offset went past start of buffer: buffer length `0`, offset `1`"
+            );
+        }
+
+        #[test]
+        fn errors_on_bad_length() {
+            let error = rle_decode_fixed(&mut [0, 0], 1, 1, 10).unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                "Decompressed data is larger than decompressed size in header by `9` bytes"
+            );
+        }
     }
 }

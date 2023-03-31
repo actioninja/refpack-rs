@@ -86,4 +86,45 @@ mod test {
 
         prop_assert_eq!(header, got);
     }
+
+    #[test]
+    fn reads_correctly() {
+        let mut buf = vec![255, 0, 0, 0, FLAGS, header::MAGIC, 0, 0, 255];
+        let mut cur = Cursor::new(&mut buf);
+        let got = Header::read::<Maxis>(&mut cur).unwrap();
+        let want = Header {
+            decompressed_length: 255,
+            compressed_length: Some(255),
+        };
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn writes_correctly() {
+        let header = Header {
+            decompressed_length: 255,
+            compressed_length: Some(255),
+        };
+        let mut buf = vec![];
+        let mut cur = Cursor::new(&mut buf);
+        header.write::<Maxis>(&mut cur).unwrap();
+        let want = vec![255, 0, 0, 0, FLAGS, header::MAGIC, 0, 0, 255];
+        assert_eq!(buf, want);
+    }
+
+    #[test]
+    fn rejects_bad_flags() {
+        let mut buf = vec![0, 0, 0, 0, 0x50, 0, 0, 0, 0];
+        let mut cur = Cursor::new(&mut buf);
+        let err = Header::read::<Maxis>(&mut cur).unwrap_err();
+        assert_eq!(err.to_string(), RefPackError::BadFlags(0x50).to_string());
+    }
+
+    #[test]
+    fn rejects_bad_magic() {
+        let mut buf = vec![0, 0, 0, 0, FLAGS, 0x50, 0, 0, 0];
+        let mut cur = Cursor::new(&mut buf);
+        let err = Header::read::<Maxis>(&mut cur).unwrap_err();
+        assert_eq!(err.to_string(), RefPackError::BadMagic(0x50).to_string());
+    }
 }
