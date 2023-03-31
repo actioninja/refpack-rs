@@ -2,22 +2,26 @@ name: Run Coverage
 
 on:
   workflow_dispatch:
+  pull_request:
   push:
-    branches:
-      - master
 
 jobs:
   coverage:
     name: Run Coverage
     runs-on: ubuntu-latest
-    container:
-      image: xd009642/tarpaulin:develop-nightly
-      options: --security-opt seccomp=unconfined
+    env:
+      CARGO_TERM_COLOR: always
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Generate Coverage
-        run: "cargo +nightly tarpaulin --verbose --workspace --exclude files coverage/*.rs --out Lcov --output-dir coverage"
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-tarpaulin
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate code coverage
+        run: |
+          mkdir coverage
+          cargo llvm-cov --all-features --workspace --lcov --output-path ./coverage/lcov.info
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@master
         with:
