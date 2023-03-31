@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Major performance improvements for `decompress` and `decompress_easy` via rewritten decompression,
   more aggressive inlining, and avoiding unnecessary allocations. Throughput should see minimum 80% 
   improvement and in best cases can be as much as 700% -@chieltbest
+- IO Errors now actually output what the error was when printed. Whoops. -@actioninja
+- Many new unit tests to harden functionality against regressions and test error cases -@actioninja 
+
+### Fixed
+- Potential nonspec compliant behavior on the `SimsEA` flags field was corrected, it now writes the
+  magic bits in the middle. -@actioninja
 
 ## [3.0.0] - 2023-03-28
 
