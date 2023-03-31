@@ -30,7 +30,6 @@ fn rust_decompression_symmetrical(
     #[strategy(proptest::collection::vec(any::<u8>(), (100..=1_000)))] input: Vec<u8>,
 ) {
     let mut compressed = easy_compress::<Reference>(&input).unwrap();
-    println!("compressed: {compressed:?}");
 
     let decompressed = refpack_decompress(&mut compressed);
 
