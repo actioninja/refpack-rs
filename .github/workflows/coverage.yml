@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v3
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Install cargo-tarpaulin
+      - name: Install llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
         run: |
