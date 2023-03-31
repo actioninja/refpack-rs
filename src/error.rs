@@ -36,9 +36,59 @@ pub enum Error {
     BadLength(usize),
     /// Generic IO Error wrapper for when a generic IO error of some sort occurs in relation to
     /// the readers and writers.
-    #[error("IO Error")]
+    #[error("IO Error: {0}")]
     Io(#[from] std::io::Error),
 }
 
 /// Wrapper for Result specified to [RefPackError](crate::RefPackError)
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_bad_flags() {
+        let err = Error::BadFlags(0b1010_1010);
+        assert_eq!(
+            err.to_string(),
+            "Unknown flag was set in compression header `10101010`"
+        );
+    }
+
+    #[test]
+    fn test_bad_magic() {
+        let err = Error::BadMagic(0x00);
+        assert_eq!(
+            err.to_string(),
+            "Invalid magic number at compression header `0x00`"
+        );
+    }
+
+    #[test]
+    fn test_bad_offset() {
+        let err = Error::BadOffset;
+        assert_eq!(
+            err.to_string(),
+            "Offset is 0 in compressed data control command"
+        );
+    }
+
+    #[test]
+    fn test_negative_position() {
+        let err = Error::NegativePosition(0, 1);
+        assert_eq!(
+            err.to_string(),
+            "Offset went past start of buffer: buffer length `0`, offset `1`"
+        );
+    }
+
+    #[test]
+    fn test_bad_length() {
+        let err = Error::BadLength(1);
+        assert_eq!(
+            err.to_string(),
+            "Decompressed data is larger than decompressed size in header by `1` bytes"
+        );
+    }
+}

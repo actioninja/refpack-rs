@@ -282,4 +282,12 @@ mod test {
     ) {
         let _unused = easy_compress::<Reference>(&input).unwrap();
     }
+
+    #[test]
+    fn empty_input_yields_error() {
+        let input = vec![];
+        let result = easy_compress::<Reference>(&input);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), RefPackError::EmptyInput));
+    }
 }
