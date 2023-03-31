@@ -1,6 +1,6 @@
 [package]
 name = "refpack"
-version = "3.0.0"
+version = "3.0.1"
 edition = "2021"
 rust-version = "1.66"
 description = "A crate providing compression/decompression for the RefPack compression format, utilized by many early 2000s EA games"
