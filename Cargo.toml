@@ -9,6 +9,7 @@ readme = "README.md"
 authors = ["actioninja"]
 license = "MPL-2.0"
 categories = ["compression", "game-development"]
+include = ["src/**", "benches/**", "tests/**", "Cargo.toml", "README.md", "LICENSE.md"]
 keywords = ["refpack", "dbpf", "far", "ea", "qfs"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
