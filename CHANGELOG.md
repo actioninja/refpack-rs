@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.0.1] - 2023-03-30
 
-## Changed
+### Changed
 - Major performance improvements for `decompress` and `decompress_easy` via rewritten decompression,
   more agressive inlining, and avoiding unnecessary allocations. Throughput should see minimum 80% 
   improvement and in best cases can be as much as 700% -@chieltbest
