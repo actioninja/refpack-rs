@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Major performance improvements for `decompress` and `decompress_easy` via rewritten decompression,
-  more agressive inlining, and avoiding unnecessary allocations. Throughput should see minimum 80% 
+  more aggressive inlining, and avoiding unnecessary allocations. Throughput should see minimum 80% 
   improvement and in best cases can be as much as 700% -@chieltbest
 
 ## [3.0.0] - 2023-03-28
