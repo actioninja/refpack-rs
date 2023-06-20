@@ -16,7 +16,7 @@ include = ["src/**", "benches/**", "tests/**", "Cargo.toml", "README.md", "LICEN
 
 [dependencies]
 byteorder = "1.4"
-thiserror = "1.0"
+onlyerror = "0.1"
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }

@@ -5,7 +5,7 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-use thiserror::Error;
+use onlyerror::Error;
 
 /// Possible errors returned by compression and decompression functions
 #[derive(Error, Debug)]
