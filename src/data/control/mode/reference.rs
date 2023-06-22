@@ -40,27 +40,38 @@ use crate::RefPackResult;
 ///
 /// ## Commands
 ///
-/// | Command | Len | Literal | Length | Position | Layout |
-/// |---------|-----|---------|--------|----------|--------|
-/// | Short   | 2   | (0-3) +0 | (3-10) +3 | (1-1023) +1 | `0PPL-LLBB:PPPP-PPPP` |
-/// | Medium  | 3   | (0-3) +0 | (4-67) +4 | (1-16383) +1 | `10LL-LLLL:BBPP-PPPP:PPPP-PPPP` |
-/// | Long    | 4   | (0-3) +0 | (5-1028) +5 | (1-131072) +1 | `110P-LLBB:PPPP-PPPP:PPPP-PPPP:LLLL-LLLL` |
-/// | Literal | 1   | (4-112) +4 | 0 | 0 | `111B-BBBB` |
-/// | Stop    | 1   | (0-3) +0 | 0 | 0 | `1111-11PP` |
+/// | Command | Len | Literal      | Length        | Position        | Layout                                    |
+/// |---------|-----|--------------|---------------|-----------------|-------------------------------------------|
+/// | Short   | 2   | (0..=3) +0   | (3..=10) +3   | (1..=1023) +1   | `0PPL-LLBB:PPPP-PPPP`                     |
+/// | Medium  | 3   | (0..=3) +0   | (4..=67) +4   | (1..=16383) +1  | `10LL-LLLL:BBPP-PPPP:PPPP-PPPP`           |
+/// | Long    | 4   | (0..=3) +0   | (5..=1028) +5 | (1..=131072) +1 | `110P-LLBB:PPPP-PPPP:PPPP-PPPP:LLLL-LLLL` |
+/// | Literal | 1   | (4..=112) +4 | 0             | 0               | `111B-BBBB`                               |
+/// | Stop    | 1   | (0..=3) +0   | 0             | 0               | `1111-11BB`                               |
 ///
 /// ### Extra Note on Literal Commands
 ///
 /// Literal is a special command that has differently encoded values.
-/// Due to that other commands can store up to 3 literal bytes, you can encode any sequence of literal
-/// bytes by writing a multiple of 4 bytes via a literal command and then split off the remainder
-/// in to the next copy command.
-/// This means that literal commands actually only _need_ to encode multiples of 4. As a result,
-/// literal commands first shift their literal length to the right by 2, making the range of 4-112
-/// stored in the space of 0-27, only 5 bits for close to what you would ordinarily get from 7.
 ///
-/// Clever, huh?
+/// While the practical range is 4-112, literal values must always be an even multiple of 4. Before
+/// being encoded, the value is first decreased by 4 then shifted right by 2
 ///
-/// One extra unusual detail is that despite that it seems like the cap from the bitshift should be 128,
+/// #### Why
+///
+/// Because all other codes can have an up to 3 byte literal payload, this means that the number of
+/// literals can be stored as (length / 4) + (length % 4). When a number is an even multiple of a
+/// power of 2, it can be encoded in less bits by bitshifting it before encoding and decoding. This
+/// lets an effective range of 0-112 for the length of literal commands in only 5 bits of data,
+/// since the first 3 bits are the huffman header.
+///
+/// If this is unclear, here's the process written out:
+/// We want to encode a literal length of 97
+/// 1. take 97 % 4 to get the "leftover" length - this will be used in next command following the literal
+/// 2. take (97 - 4) >> 2 to get the value to encode into the literal value
+/// 3. create a literal command with the result from 2, take that number of literals from the
+/// current literal buffer and write to stream
+/// 4. in the next command, encode the leftover literal value from 1
+///
+/// One extra unusual detail is that despite that it seems like te cap from the bitshift should be 128,
 /// in practice it's limited to 112. The way the original reference implementation worked was to
 /// read the huffman encoded headers via just checking if the first byte read with within certain
 /// decimal ranges. `refpack` implements this similarly for maximum compatibility. If the first byte
@@ -70,7 +81,7 @@ use crate::RefPackResult;
 pub struct Reference;
 
 impl Reference {
-    /// Reference read implementation of long codes. See [Reference] for specification
+    /// Reference read implementation of short copy commands. See [Reference] for specification
     ///
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining one byte from the `reader`.
@@ -114,7 +125,7 @@ impl Reference {
     /// Reference read implementation of long copy commands. See [Reference] for specification
     ///
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining three bytes from the `reader`.
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get the remaining four bytes from the `reader`.
     #[inline(always)]
     pub fn read_long(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
         let byte1: usize = first as usize;
