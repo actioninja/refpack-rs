@@ -34,7 +34,7 @@ hex_literal_case = "Upper"
 # horizontal imports when the line is shorter than 80, vertical otherwise
 imports_layout = "HorizontalVertical"
 
-# merge imports into a single import statement per crate
+# Enforces single import per module, with merged imports for the same module
 imports_granularity = "Module"
 
 # Enforce unix style line endings
