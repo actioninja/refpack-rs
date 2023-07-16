@@ -1,0 +1,51 @@
+# Gimme them unstables
+unstable_features = true
+
+# Max blank lines between any statement
+blank_lines_upper_bound = 2
+
+# puts expressions on seperate lines from function calls
+combine_control_expr = false
+
+# turns chains of _ wildcards into a single .. wildcard in tuples
+condense_wildcard_suffixes = true
+
+# Force multiline closure and match arm bodies to be wrapped in a block
+force_multiline_blocks = true
+
+# format code in doc comments
+format_code_in_doc_comments = true
+
+# format metavariable macro matching patterns
+format_macro_matchers = true
+
+# format string literals where neccesary
+format_strings = true
+
+# hex literals are forced uppercase
+hex_literal_case = "Upper"
+
+# horizontal imports when the line is shorter than 80, vertical otherwise
+imports_layout = "HorizontalVertical"
+
+# merge imports into a single import statement per crate
+imports_granularity = "Module"
+
+# Enforce unix style line endings
+newline_style = "Unix"
+
+# normalize comments to single line style instead of multiline
+normalize_comments = true
+
+# Reorder impl items to put type and const definitions first
+reorder_impl_items = true
+
+# Group imports into three groups: (std, core, alloc), extern crates, (self, super, crate)
+group_imports = "StdExternalCrate"
+
+# use field init shorthand ({x} instead of {x: x}) when possible
+use_field_init_shorthand = true
+
+# wrap comments if they're longer than 80 characters
+wrap_comments = true
+

@@ -20,8 +20,9 @@ use crate::RefPackResult;
 
 /// Represents limits of values
 ///
-/// All values are gotten through accessors to improve readability at usage site, while making the
-/// definition site clearer by allowing directly defining the struct
+/// All values are gotten through accessors to improve readability at usage
+/// site, while making the definition site clearer by allowing directly defining
+/// the struct
 ///
 /// All accessors are `const`
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -135,9 +136,11 @@ impl Sizes {
 
     /// "Real" minimum of literal value in a literal command once encoded
     ///
-    /// Literal commands encode their value in a a special limit precision format
+    /// Literal commands encode their value in a a special limit precision
+    /// format
     ///
-    /// See [Reference](crate::data::control::mode::Reference) for a more detailed writeup on this
+    /// See [Reference](crate::data::control::mode::Reference) for a more
+    /// detailed writeup on this
     #[must_use]
     pub const fn literal_effective_min(self) -> u8 {
         (self.literal.0 - 4) / 4
@@ -145,9 +148,11 @@ impl Sizes {
 
     /// "Real" maximum of literal value in a literal command once encoded
     ///
-    /// Literal commands encode their value in a a special limit precision format
+    /// Literal commands encode their value in a a special limit precision
+    /// format
     ///
-    /// See [Reference](crate::data::control::mode::Reference) for a more detailed writeup on this
+    /// See [Reference](crate::data::control::mode::Reference) for a more
+    /// detailed writeup on this
     #[must_use]
     pub const fn literal_effective_max(self) -> u8 {
         (self.literal.1 - 4) / 4
@@ -156,9 +161,9 @@ impl Sizes {
 
 /// Represents an encoding/decoding format for compression commands.
 ///
-/// This trait is entirely statically resolved and should only ever be implemented on structs which
-/// cannot be constructed. It has only associated functions, no methods, and only ever is referenced
-/// via generic arguments.
+/// This trait is entirely statically resolved and should only ever be
+/// implemented on structs which cannot be constructed. It has only associated
+/// functions, no methods, and only ever is referenced via generic arguments.
 ///
 /// ## Key for description:
 /// - Len: Length of the command in bytes
@@ -175,23 +180,24 @@ impl Sizes {
 /// - `-`: Nibble Separator
 /// - `:`: Byte Separator
 ///
-/// To implement your own commands, implement `Mode` on to a unit struct or unconstructable struct
-/// with one private member and no new method. #[Reference](crate::data::control::mode::Reference)
-/// has various associated methods for common standard implementations that can be composed in.
-/// `read` and `write` should be symmetrical, and a value fed in to read and then back out of write
-/// should yield the same result.
+/// To implement your own commands, implement `Mode` on to a unit struct or
+/// unconstructable struct with one private member and no new method.
+/// #[Reference](crate::data::control::mode::Reference) has various associated
+/// methods for common standard implementations that can be composed in.
+/// `read` and `write` should be symmetrical, and a value fed in to read and
+/// then back out of write should yield the same result.
 pub trait Mode {
     const SIZES: Sizes;
 
-    /// Reads from a `Read + Seek` reader and attempts to parse a command at the current position.
-    /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
-    /// attempting to read data
+    /// Reads from a `Read + Seek` reader and attempts to parse a command at the
+    /// current position. # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
+    /// Error occurs while attempting to read data
     fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Command>;
-    /// Writes to a `Write + Seek` writer and attempts to encode a command at the current position.
-    /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
-    /// attempting to write data
+    /// Writes to a `Write + Seek` writer and attempts to encode a command at
+    /// the current position. # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
+    /// Error occurs while attempting to write data
     fn write<W: Write + Seek>(command: Command, writer: &mut W) -> RefPackResult<()>;
 }
 
@@ -226,7 +232,7 @@ pub(crate) mod test {
     }
 
     macro_rules! symmetrical_rw {
-        ($in_ty: path, $in_ident: ident, $error_msg: expr) => {
+        ($in_ty:path, $in_ident:ident, $error_msg:expr) => {
             let mut cursor = Cursor::new($in_ident.clone());
             let command_read = M::read(&mut cursor).unwrap();
             let does_match = matches!(command_read, $in_ty { .. });

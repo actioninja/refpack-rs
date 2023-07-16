@@ -27,8 +27,10 @@ use crate::RefPackError;
 /// - Position Magic: 0
 /// - Layout: 110L-LLBB|PPPP-PPPP|PPPP-PPPP|LLLL-LLLL
 ///
-/// All remaining formats are identical to [Reference](crate::data::control::mode::Reference), see [Reference](crate::data::control::mode::Reference) as well for the key for the
-/// layout reference
+/// All remaining formats are identical to
+/// [Reference](crate::data::control::mode::Reference), see
+/// [Reference](crate::data::control::mode::Reference) as well for the key for
+/// the layout reference
 pub struct Simcity4;
 
 impl Mode for Simcity4 {
@@ -113,7 +115,9 @@ mod test {
     use test_strategy::proptest;
 
     use super::super::test::{
-        generate_decoder_input, generate_decoder_input_with_ceiling, read_write_mode,
+        generate_decoder_input,
+        generate_decoder_input_with_ceiling,
+        read_write_mode,
     };
     use super::*;
 

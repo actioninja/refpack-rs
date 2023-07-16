@@ -5,8 +5,9 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-//! Module for things relating to the header of the data which include decompressed length,
-//! sometimes flags or a magic number, and sometimes compressed length.
+//! Module for things relating to the header of the data which include
+//! decompressed length, sometimes flags or a magic number, and sometimes
+//! compressed length.
 
 use std::io::{Read, Seek, Write};
 
@@ -20,7 +21,8 @@ use crate::RefPackResult;
 
 pub mod mode;
 
-/// Magic number in the header. This immediately follows a flag field in most cases
+/// Magic number in the header. This immediately follows a flag field in most
+/// cases
 pub const MAGIC: u8 = 0xFB;
 
 #[cfg(test)]
@@ -53,17 +55,17 @@ pub struct Header {
 
 impl Header {
     /// # Errors
-    /// Returns [RefPackError::BadMagic](crate::RefPackError::BadMagic) if the read failed due to
-    /// an invalid magic number in the header
-    /// Returns [RefPackError::Io](crate::RefPackError::BadMagic) if the read failed due to a
-    /// generic IO Error
+    /// Returns [RefPackError::BadMagic](crate::RefPackError::BadMagic) if the
+    /// read failed due to an invalid magic number in the header
+    /// Returns [RefPackError::Io](crate::RefPackError::BadMagic) if the read
+    /// failed due to a generic IO Error
     pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> RefPackResult<Header> {
         M::read(reader)
     }
 
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::BadMagic) if the write failed due to a
-    /// generic IO Error
+    /// Returns [RefPackError::Io](crate::RefPackError::BadMagic) if the write
+    /// failed due to a generic IO Error
     pub fn write<M: Mode>(self, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
         M::write(self, writer)
     }

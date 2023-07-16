@@ -16,8 +16,8 @@ use crate::header::mode::Mode as HeaderMode;
 use crate::header::Header;
 use crate::{RefPackError, RefPackResult};
 
-//Optimization trick from libflate_lz77
-//Faster lookups for very large tables
+// Optimization trick from libflate_lz77
+// Faster lookups for very large tables
 #[derive(Debug)]
 enum PrefixTable {
     Small(HashMap<[u8; 3], u32>),
@@ -77,7 +77,8 @@ fn prefix(input_buf: &[u8]) -> [u8; 3] {
     [buf[0], buf[1], buf[2]]
 }
 
-/// Reads from an incoming `Read` reader and compresses and encodes to `Vec<Control>`
+/// Reads from an incoming `Read` reader and compresses and encodes to
+/// `Vec<Control>`
 pub(crate) fn encode_stream<F: Format>(
     reader: &mut (impl Read + Seek),
     length: usize,
@@ -130,7 +131,8 @@ pub(crate) fn encode_stream<F: Format>(
         if let Some((found, match_length)) = pair {
             let distance = i - found;
 
-            // If the current literal block is longer than the copy limit we need to split the block
+            // If the current literal block is longer than the copy limit we need to split
+            // the block
             if literal_block.len() > sizes.copy_literal_max() as usize {
                 let split_point: usize = literal_block.len() - (literal_block.len() % 4);
                 controls.push(Control::new_literal_block::<F::ControlMode>(
@@ -161,18 +163,19 @@ pub(crate) fn encode_stream<F: Format>(
         } else {
             literal_block.push(in_buffer[i]);
             i += 1;
-            // If it's reached the limit, push the block immediately and clear the running block
+            // If it's reached the limit, push the block immediately and clear the running
+            // block
             if literal_block.len() >= (sizes.literal_max() as usize) {
                 controls.push(Control::new_literal_block::<F::ControlMode>(&literal_block));
                 literal_block.clear();
             }
         }
     }
-    //Add remaining literals if there are any
+    // Add remaining literals if there are any
     if i < in_buffer.len() {
         literal_block.extend_from_slice(&in_buffer[i..]);
     }
-    //Extremely similar to block up above, but with a different control type
+    // Extremely similar to block up above, but with a different control type
     if literal_block.len() > 3 {
         let split_point: usize = literal_block.len() - (literal_block.len() % 4);
         controls.push(Control::new_literal_block::<F::ControlMode>(
@@ -190,9 +193,11 @@ pub(crate) fn encode_stream<F: Format>(
 
 /// Compress a data stream from a Reader to refpack format into a Writer.
 ///
-/// First parameter is the length; allows for compressing an arbitrary block length from any reader.
+/// First parameter is the length; allows for compressing an arbitrary block
+/// length from any reader.
 ///
-/// Second and third parameter are the pregenerated reader and destination writ.er
+/// Second and third parameter are the pregenerated reader and destination
+/// writ.er
 ///
 /// # Example
 ///
@@ -205,7 +210,6 @@ pub(crate) fn encode_stream<F: Format>(
 /// // Compress the input into the output
 /// refpack::compress(input.len(), &mut input, &mut output);
 /// // output now contains the compressed version of the input
-///
 /// ```
 ///
 /// # Errors
@@ -248,17 +252,20 @@ pub fn compress<F: Format>(
     Ok(())
 }
 
-/// Wrapped compress function with a bit easier and cleaner of an API. Takes a `&[u8]` slice of
-/// uncompressed bytes and returns a `Vec<u8>` of compressed bytes
+/// Wrapped compress function with a bit easier and cleaner of an API. Takes a
+/// `&[u8]` slice of uncompressed bytes and returns a `Vec<u8>` of compressed
+/// bytes
 ///
-/// In implementation this just creates `Cursor`s for the reader and writer and calls `compress`
+/// In implementation this just creates `Cursor`s for the reader and writer and
+/// calls `compress`
 ///
-/// Marked with `inline` so it should be inlined across crates and equivalent to manually creating
-/// the cursors.
+/// Marked with `inline` so it should be inlined across crates and equivalent to
+/// manually creating the cursors.
 ///
 /// # Errors
 ///
-/// Will return [RefPackError](crate::RefPackError) as relevant. All errors are possible.
+/// Will return [RefPackError](crate::RefPackError) as relevant. All errors are
+/// possible.
 #[inline]
 pub fn easy_compress<F: Format>(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     let mut reader = Cursor::new(input);

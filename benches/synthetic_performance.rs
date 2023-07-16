@@ -13,7 +13,12 @@ use std::{fs, io, iter};
 
 use criterion::measurement::WallTime;
 use criterion::{
-    criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion, SamplingMode,
+    criterion_group,
+    criterion_main,
+    BenchmarkGroup,
+    BenchmarkId,
+    Criterion,
+    SamplingMode,
     Throughput,
 };
 use rand::prelude::*;
@@ -154,9 +159,9 @@ fn files_bench(c: &mut Criterion<WallTime>) {
     let num_files = fs::read_dir(BENCH_FILE_DIR).map(|x| x.count()).unwrap_or(0);
     if num_files == 0 {
         println!("Input bench files not found, downloading...");
-        //create dir
+        // create dir
         let _ = fs::create_dir(Path::new(BENCH_FILE_DIR));
-        //download files with reqwest
+        // download files with reqwest
         let mut buf = vec![];
         ureq::get(BENCH_FILE_URL)
             .call()
@@ -167,7 +172,7 @@ fn files_bench(c: &mut Criterion<WallTime>) {
         let mut out = fs::File::create("benches/silesia.zip").unwrap();
         out.write_all(&buf).unwrap();
         println!("Downloaded files");
-        //unzip files
+        // unzip files
         let mut archive =
             zip::ZipArchive::new(fs::File::open("benches/silesia.zip").unwrap()).unwrap();
         for i in 0..archive.len() {

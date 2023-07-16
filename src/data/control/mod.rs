@@ -21,8 +21,8 @@ use proptest::prelude::*;
 pub use crate::data::control::mode::Mode;
 use crate::{RefPackError, RefPackResult};
 
-/// The instruction part of a control block that dictates to the compression algorithm what
-/// operations should be executed to decompress
+/// The instruction part of a control block that dictates to the compression
+/// algorithm what operations should be executed to decompress
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Command {
     /// Represents a two byte copy command
@@ -47,10 +47,11 @@ pub enum Command {
     ///
     /// u8: number of literal bytes following the command to write to the stream
     Literal(u8),
-    /// Represents an end of stream, when this command is encountered during decompression it's
-    /// evaluated and then decompression halts
+    /// Represents an end of stream, when this command is encountered during
+    /// decompression it's evaluated and then decompression halts
     ///
-    /// u8: Number of literal bytes to write to the stream before ending decompression
+    /// u8: Number of literal bytes to write to the stream before ending
+    /// decompression
     Stop(u8),
 }
 
@@ -82,7 +83,8 @@ impl Command {
         {
             assert!(
                 length >= M::SIZES.long_length_min() as usize,
-                "Length must be greater than or equal to {} for long commands (Length: {}) (Offset: {})",
+                "Length must be greater than or equal to {} for long commands (Length: {}) \
+                 (Offset: {})",
                 M::SIZES.long_length_min(),
                 length,
                 offset
@@ -97,7 +99,8 @@ impl Command {
         {
             assert!(
                 length >= M::SIZES.medium_length_min() as usize,
-                "Length must be greater than or equal to {} for medium commands (Length: {}) (Offset: {})",
+                "Length must be greater than or equal to {} for medium commands (Length: {}) \
+                 (Offset: {})",
                 M::SIZES.medium_length_min(),
                 length,
                 offset
@@ -118,8 +121,8 @@ impl Command {
 
     /// Creates a new literal command block
     /// # Panics
-    /// Panics if you attempt to create too long of a literal command. This depends on control mode
-    /// used.
+    /// Panics if you attempt to create too long of a literal command. This
+    /// depends on control mode used.
     #[must_use]
     pub fn new_literal<M: Mode>(length: usize) -> Self {
         assert!(
@@ -133,7 +136,8 @@ impl Command {
 
     /// Creates a new stopcode command block
     /// # Panics
-    /// Panics if you attempt to create too long of a stop code. This depends on control mode used.
+    /// Panics if you attempt to create too long of a stop code. This depends on
+    /// control mode used.
     #[must_use]
     pub fn new_stop<M: Mode>(literal_length: usize) -> Self {
         assert!(
@@ -185,8 +189,8 @@ impl Command {
 
     /// Reads and decodes a command from a `Read + Seek` reader.
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
-    /// attempting to read data
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
+    /// Error occurs while attempting to read data
     #[inline(always)]
     pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> RefPackResult<Self> {
         M::read(reader)
@@ -194,8 +198,8 @@ impl Command {
 
     /// Encodes and writes a command to a `Write + Seek` writer
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
-    /// attempting to write data
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
+    /// Error occurs while attempting to write data
     pub fn write<M: Mode>(self, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
         M::write(self, writer)?;
         Ok(())
@@ -230,7 +234,8 @@ impl Control {
     }
 
     /// Create a new literal block given a slice of bytes.
-    /// the `Command` is automatically generated from the length of the byte slice.
+    /// the `Command` is automatically generated from the length of the byte
+    /// slice.
     #[must_use]
     pub fn new_literal_block<M: Mode>(bytes: &[u8]) -> Self {
         Self {
@@ -240,7 +245,8 @@ impl Control {
     }
 
     /// Create a new stop control block given a slice of bytes
-    /// the `Command` is automatically generated from the length of the byte slice.
+    /// the `Command` is automatically generated from the length of the byte
+    /// slice.
     #[must_use]
     pub fn new_stop<M: Mode>(bytes: &[u8]) -> Self {
         Self {
@@ -251,8 +257,8 @@ impl Control {
 
     /// Reads and decodes a control block from a `Read + Seek` reader
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
-    /// attempting to read data
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
+    /// Error occurs while attempting to read data
     pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> Result<Self, RefPackError> {
         let command = Command::read::<M>(reader)?;
         let mut buf = vec![0u8; command.num_of_literal().unwrap_or(0)];
@@ -265,8 +271,8 @@ impl Control {
 
     /// Encodes and writes a control block to a `Write + Seek` writer
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO Error occurs while
-    /// attempting to write data
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
+    /// Error occurs while attempting to write data
     pub fn write<M: Mode>(&self, writer: &mut (impl Write + Seek)) -> Result<(), RefPackError> {
         self.command.write::<M>(writer)?;
         writer.write_all(&self.bytes)?;
@@ -290,10 +296,12 @@ pub(crate) mod tests {
             sizes.short_length_min()..=sizes.short_length_max(),
             sizes.copy_literal_min()..=sizes.copy_literal_max(),
         )
-            .prop_map(|(offset, length, literal)| Command::Short {
-                offset,
-                length,
-                literal,
+            .prop_map(|(offset, length, literal)| {
+                Command::Short {
+                    offset,
+                    length,
+                    literal,
+                }
             });
 
         let medium_copy_strat = (
@@ -301,10 +309,12 @@ pub(crate) mod tests {
             sizes.medium_length_min()..=sizes.medium_length_max(),
             sizes.copy_literal_min()..=sizes.copy_literal_max(),
         )
-            .prop_map(|(offset, length, literal)| Command::Medium {
-                offset,
-                length,
-                literal,
+            .prop_map(|(offset, length, literal)| {
+                Command::Medium {
+                    offset,
+                    length,
+                    literal,
+                }
             });
 
         let long_copy_strat = (
@@ -312,10 +322,12 @@ pub(crate) mod tests {
             sizes.long_length_min()..=sizes.long_length_max(),
             sizes.copy_literal_min()..=sizes.copy_literal_max(),
         )
-            .prop_map(|(offset, length, literal)| Command::Long {
-                offset,
-                length,
-                literal,
+            .prop_map(|(offset, length, literal)| {
+                Command::Long {
+                    offset,
+                    length,
+                    literal,
+                }
             });
 
         let literal_strat = sizes.literal_effective_min()..=sizes.literal_effective_max();

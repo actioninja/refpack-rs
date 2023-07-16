@@ -11,7 +11,8 @@ use std::marker::PhantomData;
 use crate::data::control::mode::Mode;
 use crate::data::control::Control;
 
-/// Iterator to to read a byte reader into a sequence of controls that can be iterated through
+/// Iterator to to read a byte reader into a sequence of controls that can be
+/// iterated through
 pub struct Iter<'a, R: Read + Seek, M: Mode> {
     reader: &'a mut R,
     reached_stop: bool,

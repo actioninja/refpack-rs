@@ -17,8 +17,8 @@ use crate::{header, RefPackError, RefPackResult};
 ///
 /// ## Structure
 /// - Little Endian u32: Compressed length
-/// - u8: Flags field
-///     only useful flag is large length which tells it to read decompressed length as u32
+/// - u8: Flags field only useful flag is large length which tells it to read
+///   decompressed length as u32
 /// - Magic Number: 0xFB
 /// - Big Endian u24/u32: Decompressed Length
 pub struct Maxis {
@@ -47,7 +47,7 @@ impl Mode for Maxis {
         if magic != header::MAGIC {
             return Err(RefPackError::BadMagic(magic));
         }
-        //Inexplicably this weird three byte number is stored Big Endian
+        // Inexplicably this weird three byte number is stored Big Endian
         let decompressed_length = reader.read_u24::<BigEndian>()?;
         Ok(Header {
             decompressed_length,

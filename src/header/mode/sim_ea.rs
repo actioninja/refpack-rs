@@ -14,8 +14,8 @@ use crate::header::Header;
 use crate::{header, RefPackError, RefPackResult};
 
 /// Header used by many Maxis and SimEA games
-/// The same as [Maxis](crate::header::mode::Maxis) but without the compressed length u32,
-/// and the use of the flags field
+/// The same as [Maxis](crate::header::mode::Maxis) but without the compressed
+/// length u32, and the use of the flags field
 ///
 /// ## Structure
 /// - u8: Flags field
@@ -74,7 +74,7 @@ impl Mode for SimEA {
         if magic != header::MAGIC {
             return Err(RefPackError::BadMagic(magic));
         }
-        //Inexplicably this weird three byte number is stored Big Endian
+        // Inexplicably this weird three byte number is stored Big Endian
         let decompressed_length = if flags.big_decompressed {
             reader.read_u32::<BigEndian>()?
         } else {

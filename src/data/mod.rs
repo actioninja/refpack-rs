@@ -5,8 +5,8 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-//! things relating the actual compressed data block. Anything past the header info,
-//! the actual compression algorithms themselves, control codes, etc.
+//! things relating the actual compressed data block. Anything past the header
+//! info, the actual compression algorithms themselves, control codes, etc.
 
 use std::io::{Read, Seek};
 

@@ -113,11 +113,11 @@ fn decompress_internal<F: Format>(
 /// // decompress the input into the output
 /// refpack::compress(&mut input, &mut output);
 /// // output now contains the decompressed version of the input
-///
 /// ```
 /// # Errors
 ///
-/// - Will return `Error::InvalidMagic` if the header is malformed, indicating uncompressed data or
+/// - Will return `Error::InvalidMagic` if the header is malformed, indicating
+///   uncompressed data or
 /// attempting to decompress data in the incorrect format
 /// - Will return `Error::Io` if there is an IO error
 pub fn decompress<F: Format>(
@@ -134,16 +134,18 @@ pub fn decompress<F: Format>(
 
 /// Wrapped decompress function with a bit easier and cleaner of an API.
 /// Takes a slice of bytes and returns a Vec of byes
-/// In implementation this just creates `Cursor`s for the reader and writer and calls `decompress`
+/// In implementation this just creates `Cursor`s for the reader and writer and
+/// calls `decompress`
 ///
 /// # Returns
 ///
-/// A Result containing either `Vec<u8>` of the decompressed data or a `RefPackError`.
+/// A Result containing either `Vec<u8>` of the decompressed data or a
+/// `RefPackError`.
 ///
 /// # Errors
 ///
-/// Will return `Error::InvalidMagic` if the header is malformed, indicating uncompressed data
-/// Will return `Error::Io` if there is an IO error
+/// Will return `Error::InvalidMagic` if the header is malformed, indicating
+/// uncompressed data Will return `Error::Io` if there is an IO error
 #[inline]
 pub fn easy_decompress<F: Format>(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     let mut reader = Cursor::new(input);
