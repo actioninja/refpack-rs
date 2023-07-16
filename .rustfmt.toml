@@ -1,4 +1,10 @@
-# Gimme them unstables
+# A set of sane, extremely close to "standard rust" style options
+# Mostly just utilizes some common convention that is not currently
+# agressively formatted by rustfmt, because I agree with said
+# convention.
+# Each option is commented with what effect it actually has.
+
+# Enable unstable features
 unstable_features = true
 
 # Max blank lines between any statement
@@ -48,4 +54,3 @@ use_field_init_shorthand = true
 
 # wrap comments if they're longer than 80 characters
 wrap_comments = true
-
