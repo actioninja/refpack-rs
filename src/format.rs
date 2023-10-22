@@ -6,16 +6,20 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 //! Possible compression formats to utilize
-use crate::header::mode::{Maxis, Mode as HeaderMode, Reference as ReferenceHeader, SimEA};
+use crate::header::mode::{
+    Maxis as MaxisHeader,
+    Mode as HeaderMode,
+    Reference as ReferenceHeader,
+    SimEA as SimEAHeader,
+};
 
-/// Trait that represents a pair of Header Modes and Control Modes that define a
-/// compression format.
+/// Trait that represents a format to be utilized for compression
 ///
 /// This trait is referenced entirely via associated functions at compile time
 /// and gets entirely monomorphized out. It solely exists to reference
-/// associated functions on the two control types. It should not be implemented
-/// on structs that are intended to be constructed, and it's recommended to add
-/// a `()` typed private field to prevent them from being constructed.
+/// associated functions on the control types. It should not be implemented
+/// on structs that are intended to be constructed, and should generally only be
+/// implemented on unconstructable ZST structs or empty enums.
 pub trait Format {
     /// The header read/write mode to be used for compression and decompression.
     ///
@@ -27,56 +31,24 @@ pub trait Format {
 /// Reference implementation as originally made in the 90s.
 /// - Shortened header compared to later implementations, only encodes
 ///   decompressed size ([Reference](crate::header::mode::Reference))
-/// - Standard control codes
-///   ([Reference](crate::data::control::mode::Reference))
-pub struct Reference {
-    // trick to prevent struct from ever being constructed. These are "markers" intended to be used
-    // as generic arguments rather than data structs
-    _private: (),
-}
+pub enum Reference {}
 
 impl Format for Reference {
     type HeaderMode = ReferenceHeader;
 }
 
-/// Format utilized by The Sims games from Sims 1 to 2
+/// Format utilized by The Sims games from Sims 1 to 2, as well as Simcity 4
 /// - Uses standard [Maxis](crate::header::mode::Maxis) header
-/// - Standard control codes
-///   ([Reference](crate::data::control::mode::Reference))
-pub struct TheSims12 {
-    // trick to prevent struct from ever being constructed. These are "markers" intended to be used
-    // as generic arguments rather than data structs
-    _private: (),
+pub enum Maxis {}
+
+impl Format for Maxis {
+    type HeaderMode = MaxisHeader;
 }
 
-impl Format for TheSims12 {
-    type HeaderMode = Maxis;
-}
+/// Format utilized by The Sims 3 and Sims 4.
+/// - Uses new [SimEA](crate::header::mode::SimEA) header
+pub enum SimEA {}
 
-/// Format utilized by Simcity 4.
-/// - Uses standard [Maxis](crate::header::mode::Maxis) header
-/// - Nonstandard long control code. See
-///   [Simcity4](crate::data::control::mode::Simcity4)
-pub struct Simcity4 {
-    // trick to prevent struct from ever being constructed. These are "markers" intended to be used
-    // as generic arguments rather than data structs
-    _private: (),
-}
-
-impl Format for Simcity4 {
-    type HeaderMode = Maxis;
-}
-
-/// Format utilized by Simcity 4.
-/// - Uses new [Maxis2](crate::header::mode::SimEA) header
-/// - Standard control codes
-///   ([Reference](crate::data::control::mode::Reference))
-pub struct TheSims34 {
-    // trick to prevent struct from ever being constructed. These are "markers" intended to be used
-    // as generic arguments rather than data structs
-    _private: (),
-}
-
-impl Format for TheSims34 {
-    type HeaderMode = SimEA;
+impl Format for SimEA {
+    type HeaderMode = SimEAHeader;
 }
