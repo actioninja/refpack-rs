@@ -29,7 +29,7 @@ fn decompress_internal<F: Format>(
     let mut position = 0usize;
 
     loop {
-        let command = Command::read::<F::ControlMode>(reader)?;
+        let command = Command::read(reader)?;
 
         match command {
             Command::Short {

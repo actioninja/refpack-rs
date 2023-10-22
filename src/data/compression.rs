@@ -227,7 +227,7 @@ pub fn compress<F: Format>(
     let data_start_pos = writer.seek(SeekFrom::Current(header_length as i64))?;
 
     for control in controls {
-        control.write::<F::ControlMode>(writer)?;
+        control.write(writer)?;
     }
 
     let data_end_pos = writer.stream_position()?;

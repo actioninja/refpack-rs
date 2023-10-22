@@ -13,30 +13,28 @@ use crate::data::control::Control;
 
 /// Iterator to to read a byte reader into a sequence of controls that can be
 /// iterated through
-pub struct Iter<'a, R: Read + Seek, M: Mode> {
+pub struct Iter<'a, R: Read + Seek> {
     reader: &'a mut R,
     reached_stop: bool,
-    mode: PhantomData<M>,
 }
 
-impl<'a, R: Read + Seek, M: Mode> Iter<'a, R, M> {
-    pub fn new(reader: &'a mut R) -> Iter<'a, R, M> {
-        Iter::<'a, R, M> {
+impl<'a, R: Read + Seek> Iter<'a, R> {
+    pub fn new(reader: &'a mut R) -> Iter<'a, R> {
+        Iter::<'a, R> {
             reader,
             reached_stop: false,
-            mode: PhantomData,
         }
     }
 }
 
-impl<'a, R: Read + Seek, M: Mode> Iterator for Iter<'a, R, M> {
+impl<'a, R: Read + Seek> Iterator for Iter<'a, R> {
     type Item = Control;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.reached_stop {
             None
         } else {
-            Control::read::<M>(self.reader).ok().map(|control| {
+            Control::read(self.reader).ok().map(|control| {
                 if control.command.is_stop() {
                     self.reached_stop = true;
                 }
@@ -67,7 +65,7 @@ mod test {
             .iter()
             .map(|control: &Control| -> Vec<u8> {
                 let mut buf = Cursor::new(vec![]);
-                control.write::<Reference>(&mut buf).unwrap();
+                control.write(&mut buf).unwrap();
                 buf.into_inner()
             })
             .fold(vec![], |mut acc, mut buf| {
@@ -76,7 +74,7 @@ mod test {
             });
 
         let mut cursor = Cursor::new(buf);
-        let out: Vec<Control> = Iter::<_, Reference>::new(&mut cursor).collect();
+        let out: Vec<Control> = Iter::new(&mut cursor).collect();
 
         prop_assert_eq!(out, expected);
     }

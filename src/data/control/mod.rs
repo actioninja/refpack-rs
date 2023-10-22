@@ -13,6 +13,7 @@ pub mod mode;
 
 use std::io::{Read, Seek, Write};
 
+use byteorder::{ReadBytesExt, WriteBytesExt};
 #[cfg(test)]
 use proptest::collection::{size_range, vec};
 #[cfg(test)]
@@ -85,8 +86,84 @@ pub const LONG_LENGTH_MIN: u16 = 5;
 /// maximum length for a long command
 pub const LONG_LENGTH_MAX: u16 = 1_028;
 
-/// The instruction part of a control block that dictates to the compression
-/// algorithm what operations should be executed to decompress
+/// encode/decode format used by the vast majority of RefPack
+/// implementations. Dates back to the original reference implementation by
+/// Frank Barchard
+///
+/// ## Split Numbers
+/// Numbers are always "smashed" together into as small of a space as possible
+/// EX: Getting the position from "`0PPL-LLBB--PPPP-PPPP`"
+/// 1. mask first byte: `(byte0 & 0b0110_0000)` = `0PP0-0000`
+/// 2. shift left by 3: `(0PP0-0000 << 3)` = `0000-00PP--0000-0000`
+/// 3. OR with second:  `(0000-00PP--0000-0000 | 0000-0000--PPPP-PPPP)` =
+/// `0000-00PP--PPPP-PPPP` Another way to do this would be to first shift right
+/// by 5 and so on
+///
+/// ## Key for description:
+/// - Len: Length of the command in bytes
+/// - Literal: Possible range of number of literal bytes to copy
+/// - Length: Possible range of copy length
+/// - Position Range: Possible range of positions
+/// - Layout: Bit layout of the command bytes
+///
+/// ### Key for layout
+/// - `0` or `1`: header
+/// - `P`: Position
+/// - `L`: Length
+/// - `B`: Literal bytes Length
+/// - `-`: Nibble Separator
+/// - `:`: Byte Separator
+///
+/// ## Commands
+///
+/// | Command | Len | Literal      | Length        | Position        | Layout                                    |
+#[rustfmt::skip]
+/// |---------|-----|--------------|---------------|-----------------|-------------------------------------------|
+#[rustfmt::skip]
+/// | Short   | 2   | (0..=3) +0   | (3..=10) +3   | (1..=1023) +1   | `0PPL-LLBB:PPPP-PPPP`                     |
+#[rustfmt::skip]
+/// | Medium  | 3   | (0..=3) +0   | (4..=67) +4   | (1..=16383) +1  | `10LL-LLLL:BBPP-PPPP:PPPP-PPPP`           |
+#[rustfmt::skip]
+/// | Long    | 4   | (0..=3) +0   | (5..=1028) +5 | (1..=131072) +1 | `110P-LLBB:PPPP-PPPP:PPPP-PPPP:LLLL-LLLL` |
+#[rustfmt::skip]
+/// | Literal | 1   | (4..=112) +4 | 0             | 0               | `111B-BBBB`                               |
+#[rustfmt::skip]
+/// | Stop    | 1   | (0..=3) +0   | 0             | 0               | `1111-11BB`                               |
+///
+/// ### Extra Note on Literal Commands
+///
+/// Literal is a special command that has differently encoded values.
+///
+/// While the practical range is 4-112, literal values must always be an even
+/// multiple of 4. Before being encoded, the value is first decreased by 4 then
+/// shifted right by 2
+///
+/// #### Why
+///
+/// Because all other codes can have an up to 3 byte literal payload, this means
+/// that the number of literals can be stored as (length / 4) + (length % 4).
+/// When a number is an even multiple of a power of 2, it can be encoded in less
+/// bits by bitshifting it before encoding and decoding. This lets an effective
+/// range of 0-112 for the length of literal commands in only 5 bits of data,
+/// since the first 3 bits are the huffman header.
+///
+/// If this is unclear, here's the process written out:
+/// We want to encode a literal length of 97
+/// 1. take 97 % 4 to get the "leftover" length - this will be used in next
+/// command following the literal 2. take (97 - 4) >> 2 to get the value to
+/// encode into the literal value 3. create a literal command with the result
+/// from 2, take that number of literals from the current literal buffer and
+/// write to stream 4. in the next command, encode the leftover literal value
+/// from 1
+///
+/// One extra unusual detail is that despite that it seems like te cap from the
+/// bitshift should be 128, in practice it's limited to 112. The way the
+/// original reference implementation worked was to read the huffman encoded
+/// headers via just checking if the first byte read with within certain decimal
+/// ranges. `refpack` implements this similarly for maximum compatibility. If
+/// the first byte read is within `252..=255`, it's interpreted as a stopcode.
+/// The highest allowed values of 112 is encoded as `0b1111_1011` which is `251`
+/// exactly. Any higher of a value would start seeping in to the stopcode range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Command {
     /// Represents a two byte copy command
@@ -232,22 +309,234 @@ impl Command {
         matches!(self, Command::Stop(_))
     }
 
+    /// read implementation of short copy commands.
+    ///
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get
+    /// the remaining one byte from the `reader`.
+    #[inline(always)]
+    pub fn read_short(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
+        let byte1 = first as usize;
+        let byte2: usize = reader.read_u8()?.into();
+
+        let offset = ((((byte1 & 0b0110_0000) << 3) | byte2) + 1) as u16;
+        let length = (((byte1 & 0b0001_1100) >> 2) + 3) as u8;
+        let literal = (byte1 & 0b0000_0011) as u8;
+
+        Ok(Command::Short {
+            offset,
+            length,
+            literal,
+        })
+    }
+
+    /// Reference read implementation of medium copy commands. See [Reference]
+    /// for specification
+    ///
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get
+    /// the remaining two bytes from the `reader`.
+    #[inline(always)]
+    pub fn read_medium(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
+        let byte1: usize = first as usize;
+        let byte2: usize = reader.read_u8()?.into();
+        let byte3: usize = reader.read_u8()?.into();
+
+        let offset = ((((byte2 & 0b0011_1111) << 8) | byte3) + 1) as u16;
+        let length = ((byte1 & 0b0011_1111) + 4) as u8;
+        let literal = ((byte2 & 0b1100_0000) >> 6) as u8;
+
+        Ok(Command::Medium {
+            offset,
+            length,
+            literal,
+        })
+    }
+
+    /// Reference read implementation of long copy commands. See [Reference] for
+    /// specification
+    ///
+    /// # Errors
+    /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get
+    /// the remaining four bytes from the `reader`.
+    #[inline(always)]
+    pub fn read_long(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
+        let byte1: usize = first as usize;
+        let byte2: usize = reader.read_u8()?.into();
+        let byte3: usize = reader.read_u8()?.into();
+        let byte4: usize = reader.read_u8()?.into();
+
+        let offset = ((((byte1 & 0b0001_0000) << 12) | (byte2 << 8) | byte3) + 1) as u32;
+        let length = ((((byte1 & 0b0000_1100) << 6) | byte4) + 5) as u16;
+
+        let literal = (byte1 & 0b0000_0011) as u8;
+
+        Ok(Command::Long {
+            offset,
+            length,
+            literal,
+        })
+    }
+
+    /// Reference read implementation of literal commands. See [Reference] for
+    /// specification
+    #[inline(always)]
+    #[must_use]
+    pub fn read_literal(first: u8) -> Command {
+        Command::Literal(((first & 0b0001_1111) << 2) + 4)
+    }
+
+    /// Reference read implementation of stopcodes. See [Reference] for
+    /// specification
+    #[inline(always)]
+    #[must_use]
+    pub fn read_stop(first: u8) -> Command {
+        Command::Stop(first & 0b0000_0011)
+    }
+
     /// Reads and decodes a command from a `Read + Seek` reader.
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
     /// Error occurs while attempting to read data
     #[inline(always)]
-    pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> RefPackResult<Self> {
-        M::read(reader)
+    pub fn read(reader: &mut (impl Read + Seek)) -> RefPackResult<Self> {
+        let first = reader.read_u8()?;
+
+        match first {
+            0x00..=0x7F => Self::read_short(first, reader),
+            0x80..=0xBF => Self::read_medium(first, reader),
+            0xC0..=0xDF => Self::read_long(first, reader),
+            0xE0..=0xFB => Ok(Self::read_literal(first)),
+            0xFC..=0xFF => Ok(Self::read_stop(first)),
+        }
+    }
+
+    /// Reference write implementation of short copy commands. See [Reference]
+    /// for specification # Errors
+    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
+    /// to the writer stream
+    #[inline]
+    pub fn write_short(
+        offset: u16,
+        length: u8,
+        literal: u8,
+        writer: &mut (impl Write + Seek),
+    ) -> RefPackResult<()> {
+        let length_adjusted = length - 3;
+        let offset_adjusted = offset - 1;
+
+        let first = ((offset_adjusted & 0b0000_0011_0000_0000) >> 3) as u8
+            | (length_adjusted & 0b0000_0111) << 2
+            | literal & 0b0000_0011;
+        let second = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
+
+        writer.write_u8(first)?;
+        writer.write_u8(second)?;
+        Ok(())
+    }
+
+    /// Reference write implementation of medium copy commands. See [Reference]
+    /// for specification # Errors
+    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
+    /// to the writer stream
+    #[inline]
+    pub fn write_medium(
+        offset: u16,
+        length: u8,
+        literal: u8,
+        writer: &mut (impl Write + Seek),
+    ) -> RefPackResult<()> {
+        let length_adjusted = length - 4;
+        let offset_adjusted = offset - 1;
+
+        let first = 0b1000_0000 | length_adjusted & 0b0011_1111;
+        let second = (literal & 0b0000_0011) << 6 | (offset_adjusted >> 8) as u8;
+        let third = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
+
+        writer.write_u8(first)?;
+        writer.write_u8(second)?;
+        writer.write_u8(third)?;
+
+        Ok(())
+    }
+
+    /// Reference write implementation of long copy commands. See [Reference]
+    /// for specification # Errors
+    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
+    /// to the writer stream
+    #[inline]
+    pub fn write_long(
+        offset: u32,
+        length: u16,
+        literal: u8,
+        writer: &mut (impl Write + Seek),
+    ) -> RefPackResult<()> {
+        let length_adjusted = length - 5;
+        let offset_adjusted = offset - 1;
+
+        let first = 0b1100_0000u8
+            | ((offset_adjusted >> 12) & 0b0001_0000) as u8
+            | ((length_adjusted >> 6) & 0b0000_1100) as u8
+            | literal & 0b0000_0011;
+        let second = ((offset_adjusted >> 8) & 0b1111_1111) as u8;
+        let third = (offset_adjusted & 0b1111_1111) as u8;
+        let fourth = (length_adjusted & 0b1111_1111) as u8;
+
+        writer.write_u8(first)?;
+        writer.write_u8(second)?;
+        writer.write_u8(third)?;
+        writer.write_u8(fourth)?;
+
+        Ok(())
+    }
+
+    /// Reference write implementation of literal commands. See [Reference] for
+    /// specification # Errors
+    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
+    /// to the writer stream
+    #[inline]
+    pub fn write_literal(literal: u8, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
+        let adjusted = (literal - 4) >> 2;
+        let out = 0b1110_0000 | (adjusted & 0b0001_1111);
+        writer.write_u8(out)?;
+        Ok(())
+    }
+
+    /// Reference write implementation of stopcode. See [Reference] for
+    /// specification # Errors
+    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
+    /// to the writer stream
+    #[inline]
+    pub fn write_stop(number: u8, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
+        let out = 0b1111_1100 | (number & 0b0000_0011);
+        writer.write_u8(out)?;
+        Ok(())
     }
 
     /// Encodes and writes a command to a `Write + Seek` writer
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
     /// Error occurs while attempting to write data
-    pub fn write<M: Mode>(self, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
-        M::write(self, writer)?;
-        Ok(())
+    pub fn write(self, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
+        match self {
+            Command::Short {
+                offset,
+                length,
+                literal,
+            } => Self::write_short(offset, length, literal, writer),
+            Command::Medium {
+                offset,
+                length,
+                literal,
+            } => Self::write_medium(offset, length, literal, writer),
+            Command::Long {
+                offset,
+                length,
+                literal,
+            } => Self::write_long(offset, length, literal, writer),
+            Command::Literal(literal) => Self::write_literal(literal, writer),
+            Command::Stop(literal) => Self::write_stop(literal, writer),
+        }
     }
 }
 
@@ -304,8 +593,8 @@ impl Control {
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
     /// Error occurs while attempting to read data
-    pub fn read<M: Mode>(reader: &mut (impl Read + Seek)) -> Result<Self, RefPackError> {
-        let command = Command::read::<M>(reader)?;
+    pub fn read(reader: &mut (impl Read + Seek)) -> Result<Self, RefPackError> {
+        let command = Command::read(reader)?;
         let mut buf = vec![0u8; command.num_of_literal().unwrap_or(0)];
         reader.read_exact(&mut buf)?;
         Ok(Control {
@@ -318,8 +607,8 @@ impl Control {
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
     /// Error occurs while attempting to write data
-    pub fn write<M: Mode>(&self, writer: &mut (impl Write + Seek)) -> Result<(), RefPackError> {
-        self.command.write::<M>(writer)?;
+    pub fn write(&self, writer: &mut (impl Write + Seek)) -> Result<(), RefPackError> {
+        self.command.write(writer)?;
         writer.write_all(&self.bytes)?;
         Ok(())
     }
@@ -442,9 +731,9 @@ pub(crate) mod tests {
     ) {
         let expected = Command::new(offset, length, literal);
         let mut buf = Cursor::new(vec![]);
-        expected.write::<Reference>(&mut buf).unwrap();
+        expected.write(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read::<Reference>(&mut buf).unwrap();
+        let out: Command = Command::read(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -455,9 +744,9 @@ pub(crate) mod tests {
 
         let expected = Command::new_literal(real_length);
         let mut buf = Cursor::new(vec![]);
-        expected.write::<Reference>(&mut buf).unwrap();
+        expected.write(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read::<Reference>(&mut buf).unwrap();
+        let out: Command = Command::read(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -466,9 +755,9 @@ pub(crate) mod tests {
     fn symmetrical_command_stop(#[strategy(0..=3_usize)] input: usize) {
         let expected = Command::new_stop(input);
         let mut buf = Cursor::new(vec![]);
-        expected.write::<Reference>(&mut buf).unwrap();
+        expected.write(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read::<Reference>(&mut buf).unwrap();
+        let out: Command = Command::read(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -479,9 +768,9 @@ pub(crate) mod tests {
     ) {
         let expected = input;
         let mut buf = Cursor::new(vec![]);
-        expected.write::<Reference>(&mut buf).unwrap();
+        expected.write(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Command = Command::read::<Reference>(&mut buf).unwrap();
+        let out: Command = Command::read(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
@@ -520,9 +809,9 @@ pub(crate) mod tests {
     fn symmetrical_control(#[strategy(generate_control::<Reference>())] input: Control) {
         let expected = input;
         let mut buf = Cursor::new(vec![]);
-        expected.write::<Reference>(&mut buf).unwrap();
+        expected.write(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
-        let out: Control = Control::read::<Reference>(&mut buf).unwrap();
+        let out: Control = Control::read(&mut buf).unwrap();
 
         prop_assert_eq!(out, expected);
     }
