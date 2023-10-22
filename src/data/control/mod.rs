@@ -127,24 +127,20 @@ impl Command {
     pub fn new(offset: usize, length: usize, literal: usize) -> Self {
         assert!(
             literal <= COPY_LITERAL_MAX as usize,
-            "Literal length must be less than or equal to {} for commands ({})",
-            COPY_LITERAL_MAX,
-            literal
+            "Literal length must be less than or equal to {COPY_LITERAL_MAX} for commands \
+             ({literal})"
         );
 
         if offset > LONG_OFFSET_MAX as usize || length > LONG_LENGTH_MAX as usize {
             panic!(
-                "Invalid offset or length (Maximum offset {}, got {}) (Maximum length {}, got {})",
-                LONG_OFFSET_MAX, offset, LONG_LENGTH_MAX, length
+                "Invalid offset or length (Maximum offset {LONG_OFFSET_MAX}, got {offset}) \
+                 (Maximum length {LONG_LENGTH_MAX}, got {length})"
             );
         } else if offset > MEDIUM_OFFSET_MAX as usize || length > MEDIUM_LENGTH_MAX as usize {
             assert!(
                 length >= LONG_LENGTH_MIN as usize,
-                "Length must be greater than or equal to {} for long commands (Length: {}) \
-                 (Offset: {})",
-                LONG_LENGTH_MIN,
-                length,
-                offset
+                "Length must be greater than or equal to {LONG_LENGTH_MIN} for long commands \
+                 (Length: {length}) (Offset: {offset})"
             );
             Self::Long {
                 offset: offset as u32,
@@ -154,11 +150,8 @@ impl Command {
         } else if offset > SHORT_OFFSET_MAX as usize || length > SHORT_LENGTH_MAX as usize {
             assert!(
                 length >= MEDIUM_LENGTH_MIN as usize,
-                "Length must be greater than or equal to {} for medium commands (Length: {}) \
-                 (Offset: {})",
-                MEDIUM_LENGTH_MIN,
-                length,
-                offset
+                "Length must be greater than or equal to {MEDIUM_LENGTH_MIN} for medium commands \
+                 (Length: {length}) (Offset: {offset})"
             );
             Self::Medium {
                 offset: offset as u16,
@@ -182,9 +175,7 @@ impl Command {
     pub fn new_literal(length: usize) -> Self {
         assert!(
             length <= LITERAL_MAX as usize,
-            "Literal received too long of a literal length (max {}, got {})",
-            LITERAL_MAX,
-            length
+            "Literal received too long of a literal length (max {LITERAL_MAX}, got {length})"
         );
         Self::Literal(length as u8)
     }
@@ -197,9 +188,8 @@ impl Command {
     pub fn new_stop(literal_length: usize) -> Self {
         assert!(
             literal_length <= 3,
-            "Stopcode recieved too long of a literal length (max {}, got {})",
-            COPY_LITERAL_MAX,
-            literal_length
+            "Stopcode recieved too long of a literal length (max {COPY_LITERAL_MAX}, got \
+             {literal_length})"
         );
         Self::Stop(literal_length as u8)
     }
