@@ -135,18 +135,16 @@ pub(crate) fn encode_stream<F: Format>(
             // the block
             if literal_block.len() > sizes.copy_literal_max() as usize {
                 let split_point: usize = literal_block.len() - (literal_block.len() % 4);
-                controls.push(Control::new_literal_block::<F::ControlMode>(
-                    &literal_block[..split_point],
-                ));
+                controls.push(Control::new_literal_block(&literal_block[..split_point]));
                 let second_block = &literal_block[split_point..];
                 controls.push(Control::new(
-                    Command::new::<F::ControlMode>(distance, match_length, second_block.len()),
+                    Command::new(distance, match_length, second_block.len()),
                     second_block.to_vec(),
                 ));
             } else {
                 // If it's not, just push a new block directly
                 controls.push(Control::new(
-                    Command::new::<F::ControlMode>(distance, match_length, literal_block.len()),
+                    Command::new(distance, match_length, literal_block.len()),
                     literal_block.clone(),
                 ));
             }
@@ -166,7 +164,7 @@ pub(crate) fn encode_stream<F: Format>(
             // If it's reached the limit, push the block immediately and clear the running
             // block
             if literal_block.len() >= (sizes.literal_max() as usize) {
-                controls.push(Control::new_literal_block::<F::ControlMode>(&literal_block));
+                controls.push(Control::new_literal_block(&literal_block));
                 literal_block.clear();
             }
         }
@@ -178,14 +176,10 @@ pub(crate) fn encode_stream<F: Format>(
     // Extremely similar to block up above, but with a different control type
     if literal_block.len() > 3 {
         let split_point: usize = literal_block.len() - (literal_block.len() % 4);
-        controls.push(Control::new_literal_block::<F::ControlMode>(
-            &literal_block[..split_point],
-        ));
-        controls.push(Control::new_stop::<F::ControlMode>(
-            &literal_block[split_point..],
-        ));
+        controls.push(Control::new_literal_block(&literal_block[..split_point]));
+        controls.push(Control::new_stop(&literal_block[split_point..]));
     } else {
-        controls.push(Control::new_stop::<F::ControlMode>(&literal_block));
+        controls.push(Control::new_stop(&literal_block));
     }
 
     Ok(controls)

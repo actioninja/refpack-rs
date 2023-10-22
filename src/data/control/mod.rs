@@ -21,6 +21,70 @@ use proptest::prelude::*;
 pub use crate::data::control::mode::Mode;
 use crate::{RefPackError, RefPackResult};
 
+/// minimum value of the literal length in a literal command
+pub const LITERAL_MIN: u8 = 4;
+
+/// maximum value of the literal length in a literal command
+pub const LITERAL_MAX: u8 = 112;
+
+/// "Real" maximum of literal value in a literal command once encoded
+///
+/// Literal commands encode their value in a a special limit precision
+/// format
+///
+/// Equivalent to `0`, written as an expression to convey the relation
+pub const LITERAL_EFFECTIVE_MIN: u8 = (LITERAL_MIN - 4) / 4;
+
+/// "Real" maximum of literal value in a literal command once encoded
+///
+/// Literal commands encode their value in a a special limit precision
+/// format
+///
+/// Equivalent to `27`, written as an expression to convey the relation
+pub const LITERAL_EFFECTIVE_MAX: u8 = (LITERAL_MAX - 4) / 4;
+
+/// minimum value of the literal length in a non-literal command
+pub const COPY_LITERAL_MIN: u8 = 0;
+
+/// maximum value of the literal length in a non-literal command
+pub const COPY_LITERAL_MAX: u8 = 3;
+
+/// minimum offset distance for a short command
+pub const SHORT_OFFSET_MIN: u16 = 1;
+
+/// maximum offset distance for a short command
+pub const SHORT_OFFSET_MAX: u16 = 1_023;
+
+/// minimum length for a short command
+pub const SHORT_LENGTH_MIN: u8 = 3;
+
+/// maximum length for a short command
+pub const SHORT_LENGTH_MAX: u8 = 10;
+
+/// minimum offset distance for a medium command
+pub const MEDIUM_OFFSET_MIN: u16 = 1;
+
+/// maximum offset distance for a medium command
+pub const MEDIUM_OFFSET_MAX: u16 = 16_383;
+
+/// minimum length for a medium command
+pub const MEDIUM_LENGTH_MIN: u8 = 4;
+
+/// maximum length for a medium command
+pub const MEDIUM_LENGTH_MAX: u8 = 67;
+
+/// minimum offset distance for a long command
+pub const LONG_OFFSET_MIN: u32 = 1;
+
+/// maximum offset distance for a long command
+pub const LONG_OFFSET_MAX: u32 = 131_072;
+
+/// minimum length for a long command
+pub const LONG_LENGTH_MIN: u16 = 5;
+
+/// maximum length for a long command
+pub const LONG_LENGTH_MAX: u16 = 1_028;
+
 /// The instruction part of a control block that dictates to the compression
 /// algorithm what operations should be executed to decompress
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,32 +124,25 @@ impl Command {
     /// # Panics
     /// Panics if you attempt to create an invalid Command in some way
     #[must_use]
-    pub fn new<M: Mode>(offset: usize, length: usize, literal: usize) -> Self {
+    pub fn new(offset: usize, length: usize, literal: usize) -> Self {
         assert!(
-            literal <= M::SIZES.copy_literal_max() as usize,
+            literal <= COPY_LITERAL_MAX as usize,
             "Literal length must be less than or equal to {} for commands ({})",
-            M::SIZES.copy_literal_max(),
+            COPY_LITERAL_MAX,
             literal
         );
 
-        if offset > M::SIZES.long_offset_max() as usize
-            || length > M::SIZES.long_length_max() as usize
-        {
+        if offset > LONG_OFFSET_MAX as usize || length > LONG_LENGTH_MAX as usize {
             panic!(
                 "Invalid offset or length (Maximum offset {}, got {}) (Maximum length {}, got {})",
-                M::SIZES.long_offset_max(),
-                offset,
-                M::SIZES.long_length_max(),
-                length
+                LONG_OFFSET_MAX, offset, LONG_LENGTH_MAX, length
             );
-        } else if offset > M::SIZES.medium_offset_max() as usize
-            || length > M::SIZES.medium_length_max() as usize
-        {
+        } else if offset > MEDIUM_OFFSET_MAX as usize || length > MEDIUM_LENGTH_MAX as usize {
             assert!(
-                length >= M::SIZES.long_length_min() as usize,
+                length >= LONG_LENGTH_MIN as usize,
                 "Length must be greater than or equal to {} for long commands (Length: {}) \
                  (Offset: {})",
-                M::SIZES.long_length_min(),
+                LONG_LENGTH_MIN,
                 length,
                 offset
             );
@@ -94,14 +151,12 @@ impl Command {
                 length: length as u16,
                 literal: literal as u8,
             }
-        } else if offset > M::SIZES.short_offset_max() as usize
-            || length > M::SIZES.short_length_max() as usize
-        {
+        } else if offset > SHORT_OFFSET_MAX as usize || length > SHORT_LENGTH_MAX as usize {
             assert!(
-                length >= M::SIZES.medium_length_min() as usize,
+                length >= MEDIUM_LENGTH_MIN as usize,
                 "Length must be greater than or equal to {} for medium commands (Length: {}) \
                  (Offset: {})",
-                M::SIZES.medium_length_min(),
+                MEDIUM_LENGTH_MIN,
                 length,
                 offset
             );
@@ -124,11 +179,11 @@ impl Command {
     /// Panics if you attempt to create too long of a literal command. This
     /// depends on control mode used.
     #[must_use]
-    pub fn new_literal<M: Mode>(length: usize) -> Self {
+    pub fn new_literal(length: usize) -> Self {
         assert!(
-            length <= M::SIZES.literal_max() as usize,
+            length <= LITERAL_MAX as usize,
             "Literal received too long of a literal length (max {}, got {})",
-            M::SIZES.literal_max(),
+            LITERAL_MAX,
             length
         );
         Self::Literal(length as u8)
@@ -139,11 +194,11 @@ impl Command {
     /// Panics if you attempt to create too long of a stop code. This depends on
     /// control mode used.
     #[must_use]
-    pub fn new_stop<M: Mode>(literal_length: usize) -> Self {
+    pub fn new_stop(literal_length: usize) -> Self {
         assert!(
             literal_length <= 3,
             "Stopcode recieved too long of a literal length (max {}, got {})",
-            M::SIZES.copy_literal_max(),
+            COPY_LITERAL_MAX,
             literal_length
         );
         Self::Stop(literal_length as u8)
@@ -237,9 +292,9 @@ impl Control {
     /// the `Command` is automatically generated from the length of the byte
     /// slice.
     #[must_use]
-    pub fn new_literal_block<M: Mode>(bytes: &[u8]) -> Self {
+    pub fn new_literal_block(bytes: &[u8]) -> Self {
         Self {
-            command: Command::new_literal::<M>(bytes.len()),
+            command: Command::new_literal(bytes.len()),
             bytes: bytes.to_vec(),
         }
     }
@@ -248,9 +303,9 @@ impl Control {
     /// the `Command` is automatically generated from the length of the byte
     /// slice.
     #[must_use]
-    pub fn new_stop<M: Mode>(bytes: &[u8]) -> Self {
+    pub fn new_stop(bytes: &[u8]) -> Self {
         Self {
-            command: Command::new_stop::<M>(bytes.len()),
+            command: Command::new_stop(bytes.len()),
             bytes: bytes.to_vec(),
         }
     }
@@ -395,7 +450,7 @@ pub(crate) mod tests {
         #[strategy(5..=1028_usize)] length: usize,
         #[strategy(0..=3_usize)] literal: usize,
     ) {
-        let expected = Command::new::<Reference>(offset, length, literal);
+        let expected = Command::new(offset, length, literal);
         let mut buf = Cursor::new(vec![]);
         expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
@@ -408,7 +463,7 @@ pub(crate) mod tests {
     fn symmetrical_command_literal(#[strategy(0..=27_usize)] literal: usize) {
         let real_length = (literal * 4) + 4;
 
-        let expected = Command::new_literal::<Reference>(real_length);
+        let expected = Command::new_literal(real_length);
         let mut buf = Cursor::new(vec![]);
         expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
@@ -419,7 +474,7 @@ pub(crate) mod tests {
 
     #[proptest]
     fn symmetrical_command_stop(#[strategy(0..=3_usize)] input: usize) {
-        let expected = Command::new_stop::<Reference>(input);
+        let expected = Command::new_stop(input);
         let mut buf = Cursor::new(vec![]);
         expected.write::<Reference>(&mut buf).unwrap();
         buf.seek(SeekFrom::Start(0)).unwrap();
@@ -444,31 +499,31 @@ pub(crate) mod tests {
     #[test]
     #[should_panic]
     fn command_reject_new_stop_invalid() {
-        let _invalid = Command::new_stop::<Reference>(8000);
+        let _invalid = Command::new_stop(8000);
     }
 
     #[test]
     #[should_panic]
     fn command_reject_new_literal_invalid() {
-        let _invalid = Command::new_literal::<Reference>(8000);
+        let _invalid = Command::new_literal(8000);
     }
 
     #[test]
     #[should_panic]
     fn command_reject_new_invalid_high_offset() {
-        let _invalid = Command::new::<Reference>(500_000, 0, 0);
+        let _invalid = Command::new(500_000, 0, 0);
     }
 
     #[test]
     #[should_panic]
     fn command_reject_new_invalid_high_length() {
-        let _invalid = Command::new::<Reference>(0, 500_000, 0);
+        let _invalid = Command::new(0, 500_000, 0);
     }
 
     #[test]
     #[should_panic]
     fn command_reject_new_invalid_high_literal() {
-        let _invalid = Command::new::<Reference>(0, 0, 6000);
+        let _invalid = Command::new(0, 0, 6000);
     }
 
     #[proptest]

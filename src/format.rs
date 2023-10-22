@@ -6,7 +6,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 //! Possible compression formats to utilize
-use crate::data::control::mode::{Reference as ReferenceControl, Simcity4 as Simcity4Control};
+use crate::data::control::mode::Reference as ReferenceControl;
 use crate::data::control::Mode as ControlMode;
 use crate::header::mode::{Maxis, Mode as HeaderMode, Reference as ReferenceHeader, SimEA};
 
@@ -74,7 +74,7 @@ pub struct Simcity4 {
 }
 
 impl Format for Simcity4 {
-    type ControlMode = Simcity4Control;
+    type ControlMode = ReferenceControl;
     type HeaderMode = Maxis;
 }
 

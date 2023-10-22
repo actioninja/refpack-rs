@@ -8,12 +8,10 @@
 //! possible modes to use for encoding and decoding control blocks
 
 mod reference;
-mod simcity_4;
 
 use std::io::{Read, Seek, Write};
 
 pub use reference::Reference;
-pub use simcity_4::Simcity4;
 
 use crate::data::control::Command;
 use crate::RefPackResult;
