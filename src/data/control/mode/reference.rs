@@ -42,17 +42,19 @@ use crate::RefPackResult;
 ///
 /// ## Commands
 ///
-/// | Command | Len | Literal      | Length        | Position        | Layout
-/// |
+/// | Command | Len | Literal      | Length        | Position        | Layout                                    |
+#[rustfmt::skip]
 /// |---------|-----|--------------|---------------|-----------------|-------------------------------------------|
-/// | Short   | 2   | (0..=3) +0   | (3..=10) +3   | (1..=1023) +1   |
-/// `0PPL-LLBB:PPPP-PPPP`                     | | Medium  | 3   | (0..=3) +0   |
-/// (4..=67) +4   | (1..=16383) +1  | `10LL-LLLL:BBPP-PPPP:PPPP-PPPP`
-/// | | Long    | 4   | (0..=3) +0   | (5..=1028) +5 | (1..=131072) +1 |
-/// `110P-LLBB:PPPP-PPPP:PPPP-PPPP:LLLL-LLLL` | | Literal | 1   | (4..=112) +4 |
-/// 0             | 0               | `111B-BBBB`
-/// | | Stop    | 1   | (0..=3) +0   | 0             | 0               |
-/// `1111-11BB`                               |
+#[rustfmt::skip]
+/// | Short   | 2   | (0..=3) +0   | (3..=10) +3   | (1..=1023) +1   | `0PPL-LLBB:PPPP-PPPP`                     |
+#[rustfmt::skip]
+/// | Medium  | 3   | (0..=3) +0   | (4..=67) +4   | (1..=16383) +1  | `10LL-LLLL:BBPP-PPPP:PPPP-PPPP`           |
+#[rustfmt::skip]
+/// | Long    | 4   | (0..=3) +0   | (5..=1028) +5 | (1..=131072) +1 | `110P-LLBB:PPPP-PPPP:PPPP-PPPP:LLLL-LLLL` |
+#[rustfmt::skip]
+/// | Literal | 1   | (4..=112) +4 | 0             | 0               | `111B-BBBB`                               |
+#[rustfmt::skip]
+/// | Stop    | 1   | (0..=3) +0   | 0             | 0               | `1111-11BB`                               |
 ///
 /// ### Extra Note on Literal Commands
 ///
