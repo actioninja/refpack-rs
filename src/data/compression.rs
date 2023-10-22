@@ -10,7 +10,19 @@ use std::cmp::max;
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
-use crate::data::control::{Command, Control, Mode};
+use crate::data::control::{
+    Command,
+    Control,
+    COPY_LITERAL_MAX,
+    LITERAL_MAX,
+    LONG_LENGTH_MAX,
+    LONG_LENGTH_MIN,
+    LONG_OFFSET_MAX,
+    MEDIUM_LENGTH_MIN,
+    MEDIUM_OFFSET_MAX,
+    SHORT_OFFSET_MAX,
+    SHORT_OFFSET_MIN,
+};
 use crate::format::Format;
 use crate::header::mode::Mode as HeaderMode;
 use crate::header::Header;
@@ -25,8 +37,8 @@ enum PrefixTable {
 }
 
 impl PrefixTable {
-    fn new<M: Mode>(bytes: usize) -> Self {
-        if bytes < M::SIZES.long_offset_max() as usize {
+    fn new(bytes: usize) -> Self {
+        if bytes < LONG_OFFSET_MAX as usize {
             PrefixTable::Small(HashMap::new())
         } else {
             PrefixTable::Large(LargePrefixTable::new())
@@ -83,16 +95,14 @@ pub(crate) fn encode_stream<F: Format>(
     reader: &mut (impl Read + Seek),
     length: usize,
 ) -> Result<Vec<Control>, RefPackError> {
-    let sizes = F::ControlMode::SIZES;
-
     let mut in_buffer = vec![0_u8; length];
     reader.read_exact(&mut in_buffer)?;
     let mut controls: Vec<Control> = vec![];
-    let mut prefix_table = PrefixTable::new::<F::ControlMode>(in_buffer.len());
+    let mut prefix_table = PrefixTable::new(in_buffer.len());
 
     let mut i = 0;
     let end = max(3, in_buffer.len()) - 3;
-    let mut literal_block: Vec<u8> = Vec::with_capacity(sizes.literal_max() as usize);
+    let mut literal_block: Vec<u8> = Vec::with_capacity(LITERAL_MAX as usize);
     while i < end {
         let key = prefix(&in_buffer[i..]);
 
@@ -101,13 +111,11 @@ pub(crate) fn encode_stream<F: Format>(
 
         let pair = matched.map(|x| x as usize).and_then(|matched| {
             let distance = i - matched;
-            if distance > sizes.long_offset_max() as usize
-                || distance < sizes.short_offset_min() as usize
-            {
+            if distance > LONG_OFFSET_MAX as usize || distance < SHORT_OFFSET_MIN as usize {
                 None
             } else {
                 // find the longest common prefix
-                let max_copy_len = sizes.long_length_max() as usize;
+                let max_copy_len = LONG_LENGTH_MAX as usize;
                 let match_length = in_buffer[i..]
                     .iter()
                     .take(max_copy_len - 3)
@@ -116,10 +124,10 @@ pub(crate) fn encode_stream<F: Format>(
                     .count();
 
                 // Insufficient similarity for given distance, reject
-                if (match_length <= sizes.medium_length_min() as usize
-                    && distance > sizes.short_offset_max() as usize)
-                    || (match_length <= sizes.long_length_min() as usize
-                        && distance > sizes.medium_offset_max() as usize)
+                if (match_length <= MEDIUM_LENGTH_MIN as usize
+                    && distance > SHORT_OFFSET_MAX as usize)
+                    || (match_length <= LONG_LENGTH_MIN as usize
+                        && distance > MEDIUM_OFFSET_MAX as usize)
                 {
                     None
                 } else {
@@ -133,7 +141,7 @@ pub(crate) fn encode_stream<F: Format>(
 
             // If the current literal block is longer than the copy limit we need to split
             // the block
-            if literal_block.len() > sizes.copy_literal_max() as usize {
+            if literal_block.len() > COPY_LITERAL_MAX as usize {
                 let split_point: usize = literal_block.len() - (literal_block.len() % 4);
                 controls.push(Control::new_literal_block(&literal_block[..split_point]));
                 let second_block = &literal_block[split_point..];
@@ -163,7 +171,7 @@ pub(crate) fn encode_stream<F: Format>(
             i += 1;
             // If it's reached the limit, push the block immediately and clear the running
             // block
-            if literal_block.len() >= (sizes.literal_max() as usize) {
+            if literal_block.len() >= (LITERAL_MAX as usize) {
                 controls.push(Control::new_literal_block(&literal_block));
                 literal_block.clear();
             }

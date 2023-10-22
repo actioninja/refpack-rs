@@ -6,8 +6,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 //! Possible compression formats to utilize
-use crate::data::control::mode::Reference as ReferenceControl;
-use crate::data::control::Mode as ControlMode;
 use crate::header::mode::{Maxis, Mode as HeaderMode, Reference as ReferenceHeader, SimEA};
 
 /// Trait that represents a pair of Header Modes and Control Modes that define a
@@ -24,12 +22,6 @@ pub trait Format {
     /// [HeaderMode](crate::header::mode::Mode) is an alias of the mode in the
     /// header module.
     type HeaderMode: HeaderMode;
-    /// The body control code read/write mode to be used for compression and
-    /// decompression.
-    ///
-    /// [ControlMode](crate::data::control::mode) is an alias of the mode in the
-    /// control module.
-    type ControlMode: ControlMode;
 }
 
 /// Reference implementation as originally made in the 90s.
@@ -44,7 +36,6 @@ pub struct Reference {
 }
 
 impl Format for Reference {
-    type ControlMode = ReferenceControl;
     type HeaderMode = ReferenceHeader;
 }
 
@@ -59,7 +50,6 @@ pub struct TheSims12 {
 }
 
 impl Format for TheSims12 {
-    type ControlMode = ReferenceControl;
     type HeaderMode = Maxis;
 }
 
@@ -74,7 +64,6 @@ pub struct Simcity4 {
 }
 
 impl Format for Simcity4 {
-    type ControlMode = ReferenceControl;
     type HeaderMode = Maxis;
 }
 
@@ -89,6 +78,5 @@ pub struct TheSims34 {
 }
 
 impl Format for TheSims34 {
-    type ControlMode = ReferenceControl;
     type HeaderMode = SimEA;
 }

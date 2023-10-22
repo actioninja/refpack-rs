@@ -6,9 +6,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 use std::io::{Read, Seek};
-use std::marker::PhantomData;
 
-use crate::data::control::mode::Mode;
 use crate::data::control::Control;
 
 /// Iterator to to read a byte reader into a sequence of controls that can be
@@ -52,13 +50,12 @@ mod test {
     use test_strategy::proptest;
 
     use super::*;
-    use crate::data::control::mode::Reference;
     use crate::data::control::tests::generate_valid_control_sequence;
     use crate::data::control::Control;
 
     #[proptest]
     fn test_control_iterator(
-        #[strategy(generate_valid_control_sequence::<Reference>(500))] input: Vec<Control>,
+        #[strategy(generate_valid_control_sequence(500))] input: Vec<Control>,
     ) {
         let expected = input.clone();
         let buf = input

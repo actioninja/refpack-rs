@@ -9,7 +9,6 @@
 
 #[cfg(test)]
 mod iterator;
-pub mod mode;
 
 use std::io::{Read, Seek, Write};
 
@@ -19,7 +18,6 @@ use proptest::collection::{size_range, vec};
 #[cfg(test)]
 use proptest::prelude::*;
 
-pub use crate::data::control::mode::Mode;
 use crate::{RefPackError, RefPackResult};
 
 /// minimum value of the literal length in a literal command
@@ -621,14 +619,12 @@ pub(crate) mod tests {
     use test_strategy::proptest;
 
     use super::*;
-    use crate::data::control::mode::Reference;
 
-    pub fn generate_random_valid_command<M: Mode>() -> BoxedStrategy<Command> {
-        let sizes = M::SIZES;
+    pub fn generate_random_valid_command() -> BoxedStrategy<Command> {
         let short_copy_strat = (
-            sizes.short_offset_min()..=sizes.short_offset_max(),
-            sizes.short_length_min()..=sizes.short_length_max(),
-            sizes.copy_literal_min()..=sizes.copy_literal_max(),
+            SHORT_OFFSET_MIN..=SHORT_OFFSET_MAX,
+            SHORT_LENGTH_MIN..=SHORT_LENGTH_MAX,
+            COPY_LITERAL_MIN..=COPY_LITERAL_MAX,
         )
             .prop_map(|(offset, length, literal)| {
                 Command::Short {
@@ -639,9 +635,9 @@ pub(crate) mod tests {
             });
 
         let medium_copy_strat = (
-            sizes.medium_offset_min()..=sizes.medium_offset_max(),
-            sizes.medium_length_min()..=sizes.medium_length_max(),
-            sizes.copy_literal_min()..=sizes.copy_literal_max(),
+            MEDIUM_OFFSET_MIN..=MEDIUM_OFFSET_MAX,
+            MEDIUM_LENGTH_MIN..=MEDIUM_LENGTH_MAX,
+            COPY_LITERAL_MIN..=COPY_LITERAL_MAX,
         )
             .prop_map(|(offset, length, literal)| {
                 Command::Medium {
@@ -652,9 +648,9 @@ pub(crate) mod tests {
             });
 
         let long_copy_strat = (
-            sizes.long_offset_min()..=sizes.long_offset_max(),
-            sizes.long_length_min()..=sizes.long_length_max(),
-            sizes.copy_literal_min()..=sizes.copy_literal_max(),
+            LONG_OFFSET_MIN..=LONG_OFFSET_MAX,
+            LONG_LENGTH_MIN..=LONG_LENGTH_MAX,
+            COPY_LITERAL_MIN..=COPY_LITERAL_MAX,
         )
             .prop_map(|(offset, length, literal)| {
                 Command::Long {
@@ -664,7 +660,7 @@ pub(crate) mod tests {
                 }
             });
 
-        let literal_strat = sizes.literal_effective_min()..=sizes.literal_effective_max();
+        let literal_strat = LITERAL_EFFECTIVE_MIN..=LITERAL_EFFECTIVE_MAX;
         let literal =
             Strategy::prop_map(literal_strat, |literal| Command::Literal((literal * 4) + 4));
         prop_oneof![
@@ -676,16 +672,14 @@ pub(crate) mod tests {
         .boxed()
     }
 
-    pub fn generate_stopcode<M: Mode>() -> BoxedStrategy<Command> {
-        let sizes = M::SIZES;
-
-        (sizes.copy_literal_min()..=sizes.copy_literal_max())
+    pub fn generate_stopcode() -> BoxedStrategy<Command> {
+        (COPY_LITERAL_MIN..=COPY_LITERAL_MAX)
             .prop_map(Command::Stop)
             .boxed()
     }
 
-    pub fn generate_control<M: Mode>() -> BoxedStrategy<Control> {
-        generate_random_valid_command::<M>()
+    pub fn generate_control() -> BoxedStrategy<Control> {
+        generate_random_valid_command()
             .prop_flat_map(|command| {
                 (
                     Just(command),
@@ -696,8 +690,8 @@ pub(crate) mod tests {
             .boxed()
     }
 
-    pub fn generate_stop_control<M: Mode>() -> BoxedStrategy<Control> {
-        generate_stopcode::<M>()
+    pub fn generate_stop_control() -> BoxedStrategy<Control> {
+        generate_stopcode()
             .prop_flat_map(|command| {
                 (
                     Just(command),
@@ -708,12 +702,10 @@ pub(crate) mod tests {
             .boxed()
     }
 
-    pub fn generate_valid_control_sequence<M: Mode>(
-        max_length: usize,
-    ) -> BoxedStrategy<Vec<Control>> {
+    pub fn generate_valid_control_sequence(max_length: usize) -> BoxedStrategy<Vec<Control>> {
         (
-            vec(generate_control::<M>(), 0..(max_length - 1)),
-            generate_stop_control::<M>(),
+            vec(generate_control(), 0..(max_length - 1)),
+            generate_stop_control(),
         )
             .prop_map(|(vec, stopcode)| {
                 let mut vec = vec;
@@ -763,9 +755,7 @@ pub(crate) mod tests {
     }
 
     #[proptest]
-    fn symmetrical_any_command(
-        #[strategy(generate_random_valid_command::<Reference>())] input: Command,
-    ) {
+    fn symmetrical_any_command(#[strategy(generate_random_valid_command())] input: Command) {
         let expected = input;
         let mut buf = Cursor::new(vec![]);
         expected.write(&mut buf).unwrap();
@@ -806,7 +796,7 @@ pub(crate) mod tests {
     }
 
     #[proptest]
-    fn symmetrical_control(#[strategy(generate_control::<Reference>())] input: Control) {
+    fn symmetrical_control(#[strategy(generate_control())] input: Control) {
         let expected = input;
         let mut buf = Cursor::new(vec![]);
         expected.write(&mut buf).unwrap();
