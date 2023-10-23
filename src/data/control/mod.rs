@@ -52,7 +52,7 @@ pub const COPY_LITERAL_MAX: u8 = 3;
 pub const SHORT_OFFSET_MIN: u16 = 1;
 
 /// maximum offset distance for a short command
-pub const SHORT_OFFSET_MAX: u16 = 1_023;
+pub const SHORT_OFFSET_MAX: u16 = 1_024;
 
 /// minimum length for a short command
 pub const SHORT_LENGTH_MIN: u8 = 3;
@@ -64,7 +64,7 @@ pub const SHORT_LENGTH_MAX: u8 = 10;
 pub const MEDIUM_OFFSET_MIN: u16 = 1;
 
 /// maximum offset distance for a medium command
-pub const MEDIUM_OFFSET_MAX: u16 = 16_383;
+pub const MEDIUM_OFFSET_MAX: u16 = 16_384;
 
 /// minimum length for a medium command
 pub const MEDIUM_LENGTH_MIN: u8 = 4;
@@ -118,9 +118,9 @@ pub const LONG_LENGTH_MAX: u16 = 1_028;
 #[rustfmt::skip]
 /// |---------|-----|--------------|---------------|-----------------|-------------------------------------------|
 #[rustfmt::skip]
-/// | Short   | 2   | (0..=3) +0   | (3..=10) +3   | (1..=1023) +1   | `0PPL-LLBB:PPPP-PPPP`                     |
+/// | Short   | 2   | (0..=3) +0   | (3..=10) +3   | (1..=1024) +1   | `0PPL-LLBB:PPPP-PPPP`                     |
 #[rustfmt::skip]
-/// | Medium  | 3   | (0..=3) +0   | (4..=67) +4   | (1..=16383) +1  | `10LL-LLLL:BBPP-PPPP:PPPP-PPPP`           |
+/// | Medium  | 3   | (0..=3) +0   | (4..=67) +4   | (1..=16384) +1  | `10LL-LLLL:BBPP-PPPP:PPPP-PPPP`           |
 #[rustfmt::skip]
 /// | Long    | 4   | (0..=3) +0   | (5..=1028) +5 | (1..=131072) +1 | `110P-LLBB:PPPP-PPPP:PPPP-PPPP:LLLL-LLLL` |
 #[rustfmt::skip]
