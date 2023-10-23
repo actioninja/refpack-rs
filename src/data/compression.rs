@@ -91,7 +91,7 @@ fn prefix(input_buf: &[u8]) -> [u8; 3] {
 
 /// Reads from an incoming `Read` reader and compresses and encodes to
 /// `Vec<Control>`
-pub(crate) fn encode_stream<F: Format>(
+pub(crate) fn encode_stream(
     reader: &mut (impl Read + Seek),
     length: usize,
 ) -> Result<Vec<Control>, RefPackError> {
@@ -227,7 +227,7 @@ pub fn compress<F: Format>(
         return Err(RefPackError::EmptyInput);
     }
 
-    let controls = encode_stream::<F>(reader, length)?;
+    let controls = encode_stream(reader, length)?;
 
     let header_length = F::HeaderMode::length(length);
 

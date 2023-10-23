@@ -34,14 +34,19 @@ pub trait Mode {
     fn length(decompressed_size: usize) -> usize;
 
     /// Reads from a `Read + Seek` reader and attempts to parse a header at the
-    /// current position. # Errors
+    /// current position.
+    ///
+    /// # Errors
     /// Returns [RefPackError::BadMagic](crate::RefPackError::BadMagic) if the
     /// in data has invalid magic numbers
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
     /// Error occurs while attempting to read data
     fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Header>;
+
     /// Writes to a `Write + Seek` writer and attempts to encode a header at the
-    /// current position. # Errors
+    /// current position.
+    ///
+    /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
     /// Error occurs while attempting to write data
     fn write<W: Write + Seek>(header: Header, writer: &mut W) -> RefPackResult<()>;

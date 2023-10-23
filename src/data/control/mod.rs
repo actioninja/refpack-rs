@@ -307,7 +307,8 @@ impl Command {
         matches!(self, Command::Stop(_))
     }
 
-    /// read implementation of short copy commands.
+    /// Reference read implementation of short copy commands. See structure
+    /// definition for documentation
     ///
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get
@@ -328,8 +329,8 @@ impl Command {
         })
     }
 
-    /// Reference read implementation of medium copy commands. See [Reference]
-    /// for specification
+    /// Reference read implementation of medium copy commands. See struct
+    /// definition for documentation
     ///
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get
@@ -351,8 +352,8 @@ impl Command {
         })
     }
 
-    /// Reference read implementation of long copy commands. See [Reference] for
-    /// specification
+    /// Reference read implementation of long commands. See struct definition
+    /// for documentation
     ///
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get
@@ -376,16 +377,16 @@ impl Command {
         })
     }
 
-    /// Reference read implementation of literal commands. See [Reference] for
-    /// specification
+    /// Reference read implementation of literal commands. See struct definition
+    /// for documentation
     #[inline(always)]
     #[must_use]
     pub fn read_literal(first: u8) -> Command {
         Command::Literal(((first & 0b0001_1111) << 2) + 4)
     }
 
-    /// Reference read implementation of stopcodes. See [Reference] for
-    /// specification
+    /// Reference read implementation of literal commands. See struct definition
+    /// for documentation
     #[inline(always)]
     #[must_use]
     pub fn read_stop(first: u8) -> Command {
@@ -409,8 +410,10 @@ impl Command {
         }
     }
 
-    /// Reference write implementation of short copy commands. See [Reference]
-    /// for specification # Errors
+    /// Reference write implementation of short copy commands. See struct
+    /// definition for specification
+    ///
+    /// # Errors
     /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
     /// to the writer stream
     #[inline]
@@ -433,8 +436,10 @@ impl Command {
         Ok(())
     }
 
-    /// Reference write implementation of medium copy commands. See [Reference]
-    /// for specification # Errors
+    /// Reference write implementation of medium copy commands. See struct
+    /// definition for specification
+    ///
+    /// # Errors
     /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
     /// to the writer stream
     #[inline]
@@ -458,8 +463,10 @@ impl Command {
         Ok(())
     }
 
-    /// Reference write implementation of long copy commands. See [Reference]
-    /// for specification # Errors
+    /// Reference write implementation of long copy commands. See struct
+    /// definition for specification
+    ///
+    /// # Errors
     /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
     /// to the writer stream
     #[inline]
@@ -488,8 +495,10 @@ impl Command {
         Ok(())
     }
 
-    /// Reference write implementation of literal commands. See [Reference] for
-    /// specification # Errors
+    /// Reference write implementation of literal commands. See struct
+    /// definition for specification
+    ///
+    /// # Errors
     /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
     /// to the writer stream
     #[inline]
@@ -500,8 +509,10 @@ impl Command {
         Ok(())
     }
 
-    /// Reference write implementation of stopcode. See [Reference] for
-    /// specification # Errors
+    /// Reference write implementation of stopcode. See struct definition for
+    /// specification
+    ///
+    /// # Errors
     /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
     /// to the writer stream
     #[inline]
@@ -512,6 +523,7 @@ impl Command {
     }
 
     /// Encodes and writes a command to a `Write + Seek` writer
+    ///
     /// # Errors
     /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
     /// Error occurs while attempting to write data
