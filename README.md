@@ -44,12 +44,12 @@ all compression and decompression functions accept one generic argument constrai
 
 ### Implementations
 
-| Format | Games | Control | Header |
-|--------|-------|---------|--------|
-| [Reference](https://docs.rs/refpack/latest/refpack/format/struct.Reference.html) | Various 90s Origin Software and EA games | Reference | Reference |
-| [TheSims12](https://docs.rs/refpack/latest/refpack/format/struct.TheSims12.html) | The Sims, The Sims Online, The Sims 2 | Reference | Maxis |
-| [Simcity4](https://docs.rs/refpack/latest/refpack/format/struct.Simcity4.html) | Simcity 4 | Simcity4 | Maxis |
-| [TheSims34](https://docs.rs/refpack/latest/refpack/format/struct.TheSims34.html) | The Sims 3, The Sims 4 | Reference | SimEA |
+| Format | Games | Header |
+|--------|-------|--------|
+| [Reference](https://docs.rs/refpack/latest/refpack/format/struct.Reference.html) | Various 90s Origin Software and EA games | Reference |
+| [TheSims12](https://docs.rs/refpack/latest/refpack/format/struct.TheSims12.html) | The Sims, The Sims Online, The Sims 2 | Maxis |
+| [Simcity4](https://docs.rs/refpack/latest/refpack/format/struct.Simcity4.html) | Simcity 4 | Maxis |
+| [TheSims34](https://docs.rs/refpack/latest/refpack/format/struct.TheSims34.html) | The Sims 3, The Sims 4 | SimEA |
 
 
 #### Example
