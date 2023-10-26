@@ -113,7 +113,7 @@ pub(crate) fn copy_from_reader(
     length: usize,
 ) -> Result<usize, RefPackError> {
     assert!(
-        position + length > buffer.len(),
+        buffer.len() >= position + length,
         "Attempted to copy past end of input buffer; position: {position}; length: {length}"
     );
 
