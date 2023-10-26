@@ -129,8 +129,34 @@ mod test {
         prop_assert_eq!(data, got);
     }
 
+    // excluded from normal runs to avoid massive CI runs, *very* long running
+    // tests
     #[proptest]
-    fn sims12_symmetrical_read_write(#[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
+    #[ignore]
+    fn reference_large_symmetrical_read_write(
+        #[strategy(vec(u8::ANY, 1..16_000_000))] data: Vec<u8>,
+    ) {
+        let compressed = easy_compress::<Reference>(&data).unwrap();
+
+        let got = easy_decompress::<Reference>(&compressed).unwrap();
+
+        prop_assert_eq!(data, got);
+    }
+
+    #[proptest]
+    fn maxis_symmetrical_read_write(#[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
+        let compressed = easy_compress::<Maxis>(&data).unwrap();
+
+        let got = easy_decompress::<Maxis>(&compressed).unwrap();
+
+        prop_assert_eq!(data, got);
+    }
+
+    // excluded from normal runs to avoid massive CI runs, *very* long running
+    // tests
+    #[proptest]
+    #[ignore]
+    fn maxis_large_symmetrical_read_write(#[strategy(vec(u8::ANY, 1..16_000_000))] data: Vec<u8>) {
         let compressed = easy_compress::<Maxis>(&data).unwrap();
 
         let got = easy_decompress::<Maxis>(&compressed).unwrap();
@@ -139,10 +165,22 @@ mod test {
     }
 
     #[proptest]
-    fn sims34_symmetrical_read_write(
+    fn simea_symmetrical_read_write(
         // this should include inputs of > 16mb, but testing those inputs is extremely slow
         #[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>,
     ) {
+        let compressed = easy_compress::<SimEA>(&data).unwrap();
+
+        let got = easy_decompress::<SimEA>(&compressed).unwrap();
+
+        prop_assert_eq!(data, got);
+    }
+
+    // excluded from normal runs to avoid massive CI runs, *very* long running
+    // tests
+    #[proptest]
+    #[ignore]
+    fn simea_large_symmetrical_read_write(#[strategy(vec(u8::ANY, 1..16_000_000))] data: Vec<u8>) {
         let compressed = easy_compress::<SimEA>(&data).unwrap();
 
         let got = easy_decompress::<SimEA>(&compressed).unwrap();
