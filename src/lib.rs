@@ -130,12 +130,15 @@
 //! the input and output buffers, however they are more convenient to use in
 //! many cases.
 
+// I like clippy to yell at me about everything!
 #![warn(clippy::pedantic, clippy::cargo)]
 // Due to the high amount of byte conversions, sometimes intentional lossy conversions are
 // necessary.
 #![allow(clippy::cast_possible_truncation)]
 // same as above
 #![allow(clippy::cast_lossless)]
+// and above
+#![allow(clippy::cast_possible_wrap)]
 // Annoying and wrong, RefPack is a compression scheme.
 #![allow(clippy::doc_markdown)]
 // Default::default() is more idiomatic imo
