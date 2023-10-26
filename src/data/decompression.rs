@@ -55,7 +55,8 @@ fn decompress_internal<F: Format>(
                     position,
                     offset as usize,
                     length as usize,
-                )?;
+                )
+                .map_err(|error| RefPackError::ControlError { error, position })?;
             }
             Command::Long {
                 offset,
@@ -75,7 +76,8 @@ fn decompress_internal<F: Format>(
                     position,
                     offset as usize,
                     length as usize,
-                )?;
+                )
+                .map_err(|error| RefPackError::ControlError { error, position })?;
             }
             Command::Literal(literal) => {
                 position = copy_from_reader(

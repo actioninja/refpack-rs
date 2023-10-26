@@ -5,7 +5,34 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-//! Compression algorithms, helpers, and compression encoding
+//! Compression
+//!
+//! Compression scheme is heavily based on lz77. Exact compression algorithm may
+//! be subject to change.
+//!
+//! Current tracked literal bytes *must* be written before a back-reference
+//! copy command is written
+//!
+//! Literal blocks have a max length of 112, and if this limit is reached
+//! the literal sequence must be split into two (or more) blocks to properly
+//! encode the literals
+//!
+//! Due to the limited precision of literal blocks, special handling is required
+//! for writing literal blocks before copy or stop controls. The literal block
+//! needs to be "split" to make the literal take an even multiple of 4 bytes.
+//!
+//! This is done by getting the modulus of the number of bytes modulo 4
+//! and then subtracting this remainder from the total length.
+//!
+//! Simple pseudo-rust:
+//! ```
+//! let tracked_bytes_length = 117;
+//! let num_bytes_in_copy = tracked_bytes_length % 4; // 1
+//! let num_bytes_in_literal = 117 - num_bytes_in_copy; // 116; factors by 4
+//! ```
+//!
+//! See [Command](crate::data::control::Command) for a specification of control
+//! codes
 use std::cmp::max;
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
@@ -72,7 +99,7 @@ impl LargePrefixTable {
 
         let index = (p0 << 8) | p1;
         let positions = &mut self.table[index];
-        for &mut (key, ref mut value) in positions.iter_mut() {
+        for &mut (key, ref mut value) in &mut *positions {
             if key == p2 {
                 let old = *value;
                 *value = position;

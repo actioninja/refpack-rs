@@ -9,8 +9,7 @@ use std::io::{Read, Seek};
 
 use crate::data::control::Control;
 
-/// Iterator to to read a byte reader into a sequence of controls that can be
-/// iterated through
+/// Iterator to to read a byte reader into a sequence of controls
 pub struct Iter<'a, R: Read + Seek> {
     reader: &'a mut R,
     reached_stop: bool,

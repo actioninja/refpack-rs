@@ -84,9 +84,7 @@ pub const LONG_LENGTH_MIN: u16 = 5;
 /// maximum length for a long command
 pub const LONG_LENGTH_MAX: u16 = 1_028;
 
-/// encode/decode format used by the vast majority of RefPack
-/// implementations. Dates back to the original reference implementation by
-/// Frank Barchard
+/// Possible actual control code values
 ///
 /// ## Split Numbers
 /// Numbers are always "smashed" together into as small of a space as possible
@@ -115,17 +113,11 @@ pub const LONG_LENGTH_MAX: u16 = 1_028;
 /// ## Commands
 ///
 /// | Command | Len | Literal      | Length        | Position        | Layout                                    |
-#[rustfmt::skip]
 /// |---------|-----|--------------|---------------|-----------------|-------------------------------------------|
-#[rustfmt::skip]
-/// | Short   | 2   | (0..=3) +0   | (3..=10) +3   | (1..=1023) +1   | `0PPL-LLBB:PPPP-PPPP`                     |
-#[rustfmt::skip]
+/// | Short   | 2   | (0..=3) +0   | (3..=10) +3   | (1..=1024) +1   | `0PPL-LLBB:PPPP-PPPP`                     |
 /// | Medium  | 3   | (0..=3) +0   | (4..=67) +4   | (1..=16383) +1  | `10LL-LLLL:BBPP-PPPP:PPPP-PPPP`           |
-#[rustfmt::skip]
 /// | Long    | 4   | (0..=3) +0   | (5..=1028) +5 | (1..=131072) +1 | `110P-LLBB:PPPP-PPPP:PPPP-PPPP:LLLL-LLLL` |
-#[rustfmt::skip]
 /// | Literal | 1   | (4..=112) +4 | 0             | 0               | `111B-BBBB`                               |
-#[rustfmt::skip]
 /// | Stop    | 1   | (0..=3) +0   | 0             | 0               | `1111-11BB`                               |
 ///
 /// ### Extra Note on Literal Commands
@@ -146,13 +138,15 @@ pub const LONG_LENGTH_MAX: u16 = 1_028;
 /// since the first 3 bits are the huffman header.
 ///
 /// If this is unclear, here's the process written out:
+///
 /// We want to encode a literal length of 97
-/// 1. take 97 % 4 to get the "leftover" length - this will be used in next
-/// command following the literal 2. take (97 - 4) >> 2 to get the value to
-/// encode into the literal value 3. create a literal command with the result
-/// from 2, take that number of literals from the current literal buffer and
-/// write to stream 4. in the next command, encode the leftover literal value
-/// from 1
+///
+/// 1. take `97 % 4` to get the "leftover" length - this will be used in next
+/// command following the literal
+/// 2. take `(97 - 4) >> 2` to get the value to encode into the literal value
+/// 3. create a literal command with the result from 2, take that number of
+/// literals from the current literal buffer and write to stream
+/// 4. in the next command, encode the leftover literal value from 1
 ///
 /// One extra unusual detail is that despite that it seems like te cap from the
 /// bitshift should be 128, in practice it's limited to 112. The way the
@@ -261,7 +255,7 @@ impl Command {
     /// control mode used.
     #[must_use]
     pub fn new_stop(literal_length: usize) -> Self {
-        assert!(
+        debug_assert!(
             literal_length <= 3,
             "Stopcode recieved too long of a literal length (max {COPY_LITERAL_MAX}, got \
              {literal_length})"

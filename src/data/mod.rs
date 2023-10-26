@@ -10,11 +10,39 @@
 
 use std::io::{Read, Seek};
 
+use onlyerror::Error;
+
 use crate::RefPackError;
 
 pub mod compression;
 pub mod control;
 pub mod decompression;
+
+#[derive(Error, Debug)]
+pub enum DecodeError {
+    /// Error indicating that offset was 0 in refpack control byte. This doesn't
+    /// make sense, and likely indicated the data is corrupted or malformed.
+    #[error("Offset is 0 in compressed data control command")]
+    BadOffset,
+    /// Error indicating that the requested copy offset would go past the start
+    /// of the buffer. This indicates malformed or corrupted data.
+    ///
+    /// ### Fields
+    /// - usize: buffer length
+    /// - usize: offset requested
+    #[error("Offset went past start of buffer: buffer length `{0}`, offset `{1}`")]
+    NegativePosition(usize, usize),
+    /// Error indicating that during decompression, the RLE decode attempted to
+    /// write past the end of the decompression buffer
+    ///
+    /// This error exists to prevent maliciously constructed data from using an
+    /// unbounded amount of memory
+    ///
+    /// ### Fields
+    /// - usize: amount of bytes attempted to write past
+    #[error("Decompressed data overran decompressed size in header by `{0}` bytes")]
+    BadLength(usize),
+}
 
 /// Fast decoding of run length encoded data
 /// Based on https://github.com/WanzenBug/rle-decode-helper/blob/master/src/lib.rs
@@ -25,33 +53,31 @@ pub mod decompression;
 /// If this function errors no data will have been copied
 ///
 /// # Errors
-/// * `offset` is 0
-/// * `offset` > `position`
-/// * `position + length` > `buffer.len()`
+/// - [DecodeError::BadOffset]: `offset` is 0
+/// - [DecodeError::NegativePosition]: `offset` > `position`
+/// - [DecodeError::BadLength]: `position + length` > `buffer.len()`
 ///
 /// # Panics
+/// - `fill_length + buffer.len()`
 /// * `fill_length + buffer.len()` would overflow
 ///
 /// # Returns
-/// * the new position of the buffer after the read
+/// the new position of the buffer after the read
 #[inline(always)]
-pub(crate) fn rle_decode_fixed<T>(
+pub(crate) fn rle_decode_fixed<T: Copy>(
     buffer: &mut [T],
     mut position: usize,
     mut offset: usize,
     mut length: usize,
-) -> Result<usize, RefPackError>
-where
-    T: Copy,
-{
+) -> Result<usize, DecodeError> {
     if offset == 0 {
-        return Err(RefPackError::BadOffset);
+        return Err(DecodeError::BadOffset);
     }
     if offset > position {
-        return Err(RefPackError::NegativePosition(position, offset));
+        return Err(DecodeError::NegativePosition(position, offset));
     }
     if position + length > buffer.len() {
-        return Err(RefPackError::BadLength(position + length - buffer.len()));
+        return Err(DecodeError::BadLength(position + length - buffer.len()));
     }
 
     let copy_fragment_start = position - offset;
@@ -75,11 +101,10 @@ where
 /// Copy `length` bytes from the reader into `buffer` at `position`
 ///
 /// # Errors
-/// * `position + length` > `buffer.len()`
-/// * General IO error
+/// - [RefPackError::Io]: General IO Error when reading from the reader
 ///
 /// # Returns
-/// * the new position of the buffer after the read
+/// the new position of the buffer after the read
 #[inline(always)]
 pub(crate) fn copy_from_reader(
     buffer: &mut [u8],
@@ -87,9 +112,10 @@ pub(crate) fn copy_from_reader(
     position: usize,
     length: usize,
 ) -> Result<usize, RefPackError> {
-    if position + length > buffer.len() {
-        return Err(RefPackError::BadLength(position + length - buffer.len()));
-    }
+    assert!(
+        position + length > buffer.len(),
+        "Attempted to copy past end of input buffer; position: {position}; length: {length}"
+    );
 
     reader.read_exact(&mut buffer[position..(position + length)])?;
 
@@ -118,7 +144,7 @@ mod test {
     ..Default::default()
     })]
     fn symmetrical_compression_large_input(
-        #[strategy(proptest::collection::vec(any::< u8 > (), (2_000..=2_000)))] input: Vec<u8>,
+        #[strategy(proptest::collection::vec(any::<u8>(), (2_000..=2_000)))] input: Vec<u8>,
     ) {
         let compressed = easy_compress::<Reference>(&input).unwrap();
         let decompressed = easy_decompress::<Reference>(&compressed).unwrap();
@@ -132,7 +158,7 @@ mod test {
         #[test]
         fn errors_on_bad_offset() {
             let error = rle_decode_fixed(&mut [0], 0, 0, 1).unwrap_err();
-            assert!(matches!(error, RefPackError::BadOffset));
+            assert!(matches!(error, DecodeError::BadOffset));
         }
 
         #[test]
@@ -149,7 +175,7 @@ mod test {
             let error = rle_decode_fixed(&mut [0, 0], 1, 1, 10).unwrap_err();
             assert_eq!(
                 error.to_string(),
-                "Decompressed data is larger than decompressed size in header by `9` bytes"
+                "Decompressed data overran decompressed size in header by `9` bytes"
             );
         }
     }
