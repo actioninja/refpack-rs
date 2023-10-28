@@ -17,13 +17,10 @@ use crate::{header, RefPackError, RefPackResult};
 ///
 /// ## Structure
 /// - Little Endian u32: Compressed length
-/// - u8: Flags field only useful flag is large length which tells it to read
-///   decompressed length as u32
+/// - u8: Flags field; flags are unknown, and in all known cases is `0x10`
 /// - Magic Number: 0xFB
 /// - Big Endian u24/u32: Decompressed Length
-pub struct Maxis {
-    _private: (),
-}
+pub enum Maxis {}
 
 pub const FLAGS: u8 = 0x10;
 

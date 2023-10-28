@@ -21,9 +21,7 @@ use crate::{header, RefPackError, RefPackResult};
 /// - u8: Flags field
 /// - Magic Number: 0xFB
 /// - Big Endian u24/u32: Decompressed Length
-pub struct SimEA {
-    _private: (),
-}
+pub enum SimEA {}
 
 /// The header flags
 /// Based on http://simswiki.info/wiki.php?title=Sims_3:DBPF/Compression#Compression_Types

@@ -6,6 +6,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 //! Decompression parsing, algorithms, and functionality
+//! TODO: Before merge, document how to decompress a refpack stream
 use std::io::{Cursor, Read, Seek, Write};
 
 use crate::data::control::Command;
