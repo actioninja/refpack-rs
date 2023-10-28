@@ -100,11 +100,14 @@ pub(crate) fn rle_decode_fixed<T: Copy>(
 
 /// Copy `length` bytes from the reader into `buffer` at `position`
 ///
+/// # Returns
+/// the new position of the buffer after the read
+///
 /// # Errors
 /// - [RefPackError::Io]: General IO Error when reading from the reader
 ///
-/// # Returns
-/// the new position of the buffer after the read
+/// # Panics
+/// Panics if a copy would go past the end of the buffer to copy to
 #[inline(always)]
 pub(crate) fn copy_from_reader(
     buffer: &mut [u8],

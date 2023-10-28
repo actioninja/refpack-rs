@@ -5,8 +5,6 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-//! Compression
-//!
 //! Compression scheme is heavily based on lz77. Exact compression algorithm may
 //! be subject to change.
 //!
@@ -31,8 +29,7 @@
 //! let num_bytes_in_literal = 117 - num_bytes_in_copy; // 116; factors by 4
 //! ```
 //!
-//! See [Command](crate::data::control::Command) for a specification of control
-//! codes
+//! See [Command] for a specification of control codes
 use std::cmp::max;
 use std::collections::HashMap;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
@@ -242,9 +239,8 @@ pub(crate) fn encode_stream(
 /// ```
 ///
 /// # Errors
-///
-/// Will return `Error::Io` if there is an IO error
-/// Will return `Error::EmptyInput` if the length provided is 0
+/// - [RefPackError::EmptyInput]: Length provided is 0
+/// - [RefPackError::Io]: Generic IO error when reading or writing
 pub fn compress<F: Format>(
     length: usize,
     reader: &mut (impl Read + Seek),
@@ -292,9 +288,8 @@ pub fn compress<F: Format>(
 /// manually creating the cursors.
 ///
 /// # Errors
-///
-/// Will return [RefPackError](crate::RefPackError) as relevant. All errors are
-/// possible.
+/// - [RefPackError::EmptyInput]: Length provided is 0
+/// - [RefPackError::Io]: Generic IO error when reading or writing
 #[inline]
 pub fn easy_compress<F: Format>(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     let mut reader = Cursor::new(input);

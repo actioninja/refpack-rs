@@ -29,6 +29,10 @@ pub enum Error {
     /// - u8: What was read instead of the magic value
     #[error("Invalid magic number at compression header `{0:#04X}`")]
     BadMagic(u8),
+    /// Indicates that an invalid operation occurred while attempting to decode
+    /// a control. This normally indicates invalid or corrupted data.
+    ///
+    /// See [DecodeError] for further details on types of errors that can occur.
     #[error("Error occured while decoding control block at position `{position}`:\n{error}")]
     ControlError { error: DecodeError, position: usize },
     /// Generic IO Error wrapper for when a generic IO error of some sort occurs
