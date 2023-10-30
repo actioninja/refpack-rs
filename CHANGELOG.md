@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0]
+
 ### Changed
 - Large refactor to remove support for varying implementations of control codes. Turns out that these are actually
   entirely the same in every single implementation, including Simcity 4. The Nioso and SimsWiki are *inaccurate* on
@@ -63,7 +65,8 @@ Major rewrite to support multiple formats while also resolving them at compile t
 First "production" version. This version was specialized for The Sims 2.
 
 
-[Unreleased]: https://github.com/actioninja/refpack-rs/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/actioninja/refpack-rs/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/actioninja/refpack-rs/compare/v3.0.3...v4.0.0
 [3.0.3]: https://github.com/actioninja/refpack-rs/compare/v3.0.2...v3.0.3
 [3.0.2]: https://github.com/actioninja/refpack-rs/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/actioninja/refpack-rs/compare/v3.0.0...v3.0.1
