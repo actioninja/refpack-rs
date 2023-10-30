@@ -51,6 +51,3 @@ group_imports = "StdExternalCrate"
 
 # use field init shorthand ({x} instead of {x: x}) when possible
 use_field_init_shorthand = true
-
-# wrap comments if they're longer than 80 characters
-wrap_comments = true

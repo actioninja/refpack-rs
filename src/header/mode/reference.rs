@@ -19,9 +19,7 @@ use crate::RefPackResult;
 /// - Little Endian u32: decompressed length
 ///
 /// Nothing else
-pub struct Reference {
-    _private: (),
-}
+pub enum Reference {}
 
 impl Mode for Reference {
     fn length(_decompressed_size: usize) -> usize {
