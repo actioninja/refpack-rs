@@ -8,9 +8,9 @@
 //! things relating the actual compressed data block. Anything past the header
 //! info, the actual compression algorithms themselves, control codes, etc.
 
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::io::{Read, Seek};
-
-use onlyerror::Error;
 
 use crate::RefPackError;
 
@@ -18,11 +18,10 @@ pub mod compression;
 pub mod control;
 pub mod decompression;
 
-#[derive(Error, Debug)]
+#[derive(Debug)]
 pub enum DecodeError {
     /// Error indicating that offset was 0 in refpack control byte. This doesn't
     /// make sense, and likely indicated the data is corrupted or malformed.
-    #[error("Offset is 0 in compressed data control command")]
     BadOffset,
     /// Error indicating that the requested copy offset would go past the start
     /// of the buffer. This indicates malformed or corrupted data.
@@ -30,7 +29,6 @@ pub enum DecodeError {
     /// ### Fields
     /// - usize: buffer length
     /// - usize: offset requested
-    #[error("Offset went past start of buffer: buffer length `{0}`, offset `{1}`")]
     NegativePosition(usize, usize),
     /// Error indicating that during decompression, the RLE decode attempted to
     /// write past the end of the decompression buffer
@@ -40,9 +38,32 @@ pub enum DecodeError {
     ///
     /// ### Fields
     /// - usize: amount of bytes attempted to write past
-    #[error("Decompressed data overran decompressed size in header by `{0}` bytes")]
     BadLength(usize),
 }
+
+impl Display for DecodeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DecodeError::BadOffset => {
+                write!(f, "Offset is 0 in compressed data control command")
+            }
+            DecodeError::NegativePosition(length, offset) => {
+                write!(
+                    f,
+                    "Offset went past start of buffer: buffer length `{length}`, offset `{offset}`"
+                )
+            }
+            DecodeError::BadLength(length) => {
+                write!(
+                    f,
+                    "Decompressed data overran decompressed size in header by `{length}` bytes"
+                )
+            }
+        }
+    }
+}
+
+impl Error for DecodeError {}
 
 /// Fast decoding of run length encoded data
 /// Based on https://github.com/WanzenBug/rle-decode-helper/blob/master/src/lib.rs
