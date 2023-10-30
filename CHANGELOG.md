@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Formats no longer include a "Control" format
 - `TheSims12` format was renamed to `Maxis`, and now is the intended format to use for Simcity 4
 - `TheSims34` format was renamed to `SimEA`
+- `byteorder` dependency was bumped to `1.5`
+- removed dependency on `onlyerror`, no macros are used for errors
 
 ### Fixed
 - Some range errors on reference were corrected - Thanks @lingeringwillx
