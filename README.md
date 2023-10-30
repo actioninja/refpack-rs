@@ -134,3 +134,24 @@ the input and output buffers, however they are more convenient to use in
 many cases.
 
 <!-- cargo-rdme end -->
+
+# License
+This repository is licensed under the terms of the [Mozilla Public License Version 2.0](./LICENSE.md)
+
+The MPL is a weak copyleft license, in simple, non-legally binding language:
+
+### You can ()
+1. Use this software privately
+2. Use this software commercially
+3. Modify this software
+4. Redistribute this software
+
+### As long as
+1. You disclose the license and copyright of this library
+2. You disclose the source of this library
+3. You disclose the source changes made to this library's files
+4. You use the same license for your changes made to the library's files
+
+In even simpler terms, you can use this for pretty much anything as long as you credit and link to it,
+but if you change any *files* from this library you must also share the source code of your changes.  Again, non-legally
+binding, see actual license text, etc.
