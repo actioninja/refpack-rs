@@ -141,7 +141,7 @@ This repository is licensed under the terms of the [Mozilla Public License Versi
 
 The MPL is a weak copyleft license, in simple, non-legally binding language:
 
-### You can ()
+### You can
 1. Use this software privately
 2. Use this software commercially
 3. Modify this software
