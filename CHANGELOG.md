@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.2]
+### Documentation
+ - Very minor typo correction in readme, bump for cargo.io update
+
 ## [4.0.1]
 
 ### Documentation
@@ -70,7 +74,9 @@ Major rewrite to support multiple formats while also resolving them at compile t
 First "production" version. This version was specialized for The Sims 2.
 
 
-[Unreleased]: https://github.com/actioninja/refpack-rs/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/actioninja/refpack-rs/compare/v4.0.2...HEAD
+[4.0.2]: https://github.com/actioninja/refpack-rs/compare/v4.0.1...v4.0.2
+[4.0.1]: https://github.com/actioninja/refpack-rs/compare/v4.0.0...v4.0.1
 [4.0.0]: https://github.com/actioninja/refpack-rs/compare/v3.0.3...v4.0.0
 [3.0.3]: https://github.com/actioninja/refpack-rs/compare/v3.0.2...v3.0.3
 [3.0.2]: https://github.com/actioninja/refpack-rs/compare/v3.0.1...v3.0.2
