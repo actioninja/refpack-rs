@@ -5,8 +5,100 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
-//! Decompression parsing, algorithms, and functionality
-//! TODO: Before merge, document how to decompress a refpack stream
+//! Decompression parsing, algorithms, and functionality. Exact decompression
+//! algorithm is subject to change.
+//!
+//! Basic concept is to parse the header, identify key information such as
+//! decompressed header, then parse as a repeating stream of "command" blocks,
+//! consisting of a control code and any (if any) following literal bytes.
+//!
+//! Literal bytes should always be written before performing the control code
+//! operation.
+//!
+//! Control code operations are "run length encoded", which is a format of
+//! encoding where the "length" of a pointer-style control can be longer than
+//! the lookback length. This indicates that the section within the lookback
+//! region should repeat until the length is fulfilled
+//!
+//! # Example Byte-by-byte Algorithm
+//!
+//! This is *normally* handled via byte-by-byte decoding, where a lookback
+//! position and write position counter are incremented at the same time,
+//! however other faster implementations may be possible. This algorithm
+//! explanation is purely intended to illustrate the concept.
+//!
+//! ## Algorithm steps
+//!
+//! while in reality the possible allowed values are any arbitrary byte,
+//! characters are used to indicate whole bytes to simplify illustration
+//!
+//! Given the current decoded output of `DEADBEEF`, the next control encountered
+//! has a lookback of `4`, and a length of `16`.
+//!
+//! ### 1. Create Pointers
+//! Create pointers/get indexes for the current lookback position and current
+//! output position
+//!
+//! ```text
+//! DEADBEEF
+//!     ^   ^
+//!     LB  O
+//! ```
+//!
+//! ### 2. Copy from lookback to output
+//! Take the current byte at the lookback position, and copy it to the output
+//! position
+//!
+//! ```text
+//! DEADBEEFB
+//!     ^   ^
+//!     LB  O
+//! ```
+//!
+//! ### 3. Advance Pointers
+//! Increment both the lookback position and the output position
+//!
+//! ```text
+//! DEADBEEFB
+//!      ^   ^
+//!      LB  O
+//! ```
+//!
+//! ### 4. Repeat `length` times
+//! Steps 2 and 3 should repeat a total of times equal to the length of the
+//! control block.
+//!
+//! #### 4.A "What about when the lookback reaches already output?"
+//! In a case where the length overruns into the already written output, the
+//! process continues as normal and the output starts to repeat.
+//!
+//! in this example output, On the 5th iteration you will encounter this state:
+//! ```text
+//! DEADBEEFBEEF
+//!         ^   ^
+//!         LB  O
+//! ```
+//! The lookback is currently pointing at the first "B" that has been written.
+//! This isn't actually a problem, and step 2 and 3 should be followed as normal:
+//!
+//! ```text
+//! DEADBEEFBEEFB
+//!         ^   ^
+//!         LB  O
+//! ```
+//!
+//! ```text
+//! DEADBEEFBEEFB
+//!          ^   ^
+//!          LB  O
+//! ```
+//!
+//! ## Final Result
+//! Given that the algorithm was followed properly, the final output of the
+//! example input should be
+//! ```text
+//! DEADBEEFBEEFBEEFBEEFBEEF
+//! ```
 use std::io::{Cursor, Read, Seek, Write};
 
 use crate::data::control::Command;

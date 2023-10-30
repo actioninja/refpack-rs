@@ -8,6 +8,10 @@
 //! Compression scheme is heavily based on lz77. Exact compression algorithm may
 //! be subject to change.
 //!
+//! Basic concept is to track literal bytes as you encounter them, and have some
+//! way of identifying when current bytes match previously encountered
+//! sequences.
+//!
 //! Current tracked literal bytes *must* be written before a back-reference
 //! copy command is written
 //!
