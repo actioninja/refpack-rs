@@ -118,11 +118,17 @@ fn decompress_internal<F: Format>(
 /// // output now contains the decompressed version of the input
 /// ```
 /// # Errors
-///
-/// - Will return `Error::InvalidMagic` if the header is malformed, indicating
-///   uncompressed data or
-/// attempting to decompress data in the incorrect format
-/// - Will return `Error::Io` if there is an IO error
+/// - [RefPackError::BadMagic]: Header magic was malformed, likely indicating
+///   either uncompressed data or attempting to decompress data in an incorrect
+///   format
+/// - [RefPackError::BadFlags]: Header magic was malformed, likely indicating
+///   either uncompressed data or attempting to decompress data in an incorrect
+///   format
+/// - [RefPackError::ControlError]: Invalid control code operation was attempted
+///   to be performed. This normally indicated corrupted or invalid refpack
+///   data
+/// - [RefPackError::Io]: Generic IO error occured while attempting to read or
+///   write data
 pub fn decompress<F: Format>(
     reader: &mut (impl Read + Seek),
     writer: &mut impl Write,
@@ -146,9 +152,16 @@ pub fn decompress<F: Format>(
 /// `RefPackError`.
 ///
 /// # Errors
-///
-/// Will return `Error::InvalidMagic` if the header is malformed, indicating
-/// uncompressed data Will return `Error::Io` if there is an IO error
+/// - [RefPackError::BadMagic]: Header was malformed, likely indicating either
+///   uncompressed data or attempting to decompress data in an incorrect format
+/// - [RefPackError::BadFlags]: Header magic was malformed, likely indicating
+///   either uncompressed data or attempting to decompress data in an incorrect
+///   format
+/// - [RefPackError::ControlError]: Invalid control code operation was attempted
+///   to be performed. This normally indicated corrupted or invalid refpack
+///   data
+/// - [RefPackError::Io]: Generic IO error occured while attempting to read or
+///   write data
 #[inline]
 pub fn easy_decompress<F: Format>(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
     let mut reader = Cursor::new(input);

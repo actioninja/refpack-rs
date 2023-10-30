@@ -305,8 +305,7 @@ impl Command {
     /// definition for documentation
     ///
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get
-    /// the remaining one byte from the `reader`.
+    /// - [RefPackError::Io]: Failed to get remaining single byte from reader
     #[inline(always)]
     pub fn read_short(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
         let byte1 = first as usize;
@@ -327,8 +326,7 @@ impl Command {
     /// definition for documentation
     ///
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get
-    /// the remaining two bytes from the `reader`.
+    /// - [RefPackError::Io]: Failed to get remaining two bytes from reader
     #[inline(always)]
     pub fn read_medium(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
         let byte1: usize = first as usize;
@@ -350,8 +348,7 @@ impl Command {
     /// for documentation
     ///
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if it fails to get
-    /// the remaining four bytes from the `reader`.
+    /// - [RefPackError::Io]: Failed to get remaining three bytes from the reader
     #[inline(always)]
     pub fn read_long(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
         let byte1: usize = first as usize;
@@ -389,8 +386,8 @@ impl Command {
 
     /// Reads and decodes a command from a `Read + Seek` reader.
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
-    /// Error occurs while attempting to read data
+    /// - [RefPackError::Io]: Generic IO error occurred while attempting to read
+    ///   data
     #[inline(always)]
     pub fn read(reader: &mut (impl Read + Seek)) -> RefPackResult<Self> {
         let first = reader.read_u8()?;
@@ -408,8 +405,8 @@ impl Command {
     /// definition for specification
     ///
     /// # Errors
-    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
-    /// to the writer stream
+    /// - [RefPackError::Io]: Generic IO error occurred while attempting to
+    ///   write data
     #[inline]
     pub fn write_short(
         offset: u16,
@@ -434,8 +431,8 @@ impl Command {
     /// definition for specification
     ///
     /// # Errors
-    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
-    /// to the writer stream
+    /// - [RefPackError::Io]: Generic IO error occurred while attempting to
+    ///   write data
     #[inline]
     pub fn write_medium(
         offset: u16,
@@ -461,8 +458,8 @@ impl Command {
     /// definition for specification
     ///
     /// # Errors
-    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
-    /// to the writer stream
+    /// - [RefPackError::Io]: Generic IO error occurred while attempting to
+    ///   write data
     #[inline]
     pub fn write_long(
         offset: u32,
@@ -493,8 +490,8 @@ impl Command {
     /// definition for specification
     ///
     /// # Errors
-    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
-    /// to the writer stream
+    /// - [RefPackError::Io]: Generic IO error occurred while attempting to
+    ///   write data
     #[inline]
     pub fn write_literal(literal: u8, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
         let adjusted = (literal - 4) >> 2;
@@ -507,8 +504,8 @@ impl Command {
     /// specification
     ///
     /// # Errors
-    /// returns [RefPackError::Io](crate::RefPackError::Io) if it fails to write
-    /// to the writer stream
+    /// - [RefPackError::Io]: Generic IO error occurred while attempting to
+    ///   write data
     #[inline]
     pub fn write_stop(number: u8, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
         let out = 0b1111_1100 | (number & 0b0000_0011);
@@ -519,8 +516,8 @@ impl Command {
     /// Encodes and writes a command to a `Write + Seek` writer
     ///
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
-    /// Error occurs while attempting to write data
+    /// - [RefPackError::Io]: Generic IO error occurred while attempting to
+    ///   write data
     pub fn write(self, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
         match self {
             Command::Short {
@@ -595,8 +592,8 @@ impl Control {
 
     /// Reads and decodes a control block from a `Read + Seek` reader
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
-    /// Error occurs while attempting to read data
+    /// - [RefPackError::Io]: Generic IO error occurred while attempting to read
+    ///   data
     pub fn read(reader: &mut (impl Read + Seek)) -> Result<Self, RefPackError> {
         let command = Command::read(reader)?;
         let mut buf = vec![0u8; command.num_of_literal().unwrap_or(0)];
@@ -609,8 +606,8 @@ impl Control {
 
     /// Encodes and writes a control block to a `Write + Seek` writer
     /// # Errors
-    /// Returns [RefPackError::Io](crate::RefPackError::Io) if a generic IO
-    /// Error occurs while attempting to write data
+    /// - [RefPackError::Io]: Generic IO Error occurred while attempting to
+    ///   write data
     pub fn write(&self, writer: &mut (impl Write + Seek)) -> Result<(), RefPackError> {
         self.command.write(writer)?;
         writer.write_all(&self.bytes)?;

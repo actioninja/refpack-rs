@@ -58,8 +58,7 @@ pub enum DecodeError {
 /// - [DecodeError::BadLength]: `position + length` > `buffer.len()`
 ///
 /// # Panics
-/// - `fill_length + buffer.len()`
-/// * `fill_length + buffer.len()` would overflow
+/// - `fill_length + buffer.len()`: would overflow
 ///
 /// # Returns
 /// the new position of the buffer after the read
