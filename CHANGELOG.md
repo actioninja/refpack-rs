@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Large refactor to remove support for varying implementations of control codes. Turns out that these are actually
   entirely the same in every single implementation, including Simcity 4. The Nioso and SimsWiki are *inaccurate* on
   this.
+- Formats no longer include a "Control" format
 - `TheSims12` format was renamed to `Maxis`, and now is the intended format to use for Simcity 4
 - `TheSims34` format was renamed to `SimEA`
 
