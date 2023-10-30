@@ -44,10 +44,11 @@
 //! and involves a sliding window over the data to search for repeating blocks,
 //! and then writing to the stream as the previously specified codes.
 //!
-//! See [compression](crate::data::compression)
+//! See [compression](crate::data::compression) for further details
 //!
 //! ## Headers
-//! While
+//! While the actual data block of RefPack has only one known implementation,
+//! multiple types of headers for the library have been identified.
 //!
 //! ## Other Implementations
 //!

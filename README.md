@@ -49,10 +49,11 @@ Compressing via RefPack is largely similar to lz77 compression algorithms,
 and involves a sliding window over the data to search for repeating blocks,
 and then writing to the stream as the previously specified codes.
 
-See [compression](https://docs.rs/refpack/latest/refpack/data/compression/)
+See [compression](https://docs.rs/refpack/latest/refpack/data/compression/) for further details
 
 ### Headers
-While
+While the actual data block of RefPack has only one known implementation,
+multiple types of headers for the library have been identified.
 
 ### Other Implementations
 
