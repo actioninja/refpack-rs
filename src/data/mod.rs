@@ -167,7 +167,7 @@ mod test {
     ..Default::default()
     })]
     fn symmetrical_compression_large_input(
-        #[strategy(proptest::collection::vec(any::<u8>(), (2_000..=2_000)))] input: Vec<u8>,
+        #[strategy(proptest::collection::vec(any::<u8>(), 2_000..=2_000))] input: Vec<u8>,
     ) {
         let compressed = easy_compress::<Reference>(&input).unwrap();
         let decompressed = easy_decompress::<Reference>(&compressed).unwrap();

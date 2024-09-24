@@ -15,7 +15,7 @@ use test_strategy::proptest;
 
 #[proptest]
 fn rust_compression_symmetrical(
-    #[strategy(proptest::collection::vec(any::<u8>(), (100..=1_000)))] input: Vec<u8>,
+    #[strategy(proptest::collection::vec(any::<u8>(), 100..=1_000))] input: Vec<u8>,
 ) {
     let mut cloned = input.clone();
     let compressed = refpack_compress(&mut cloned);
@@ -27,7 +27,7 @@ fn rust_compression_symmetrical(
 
 #[proptest]
 fn rust_decompression_symmetrical(
-    #[strategy(proptest::collection::vec(any::<u8>(), (100..=1_000)))] input: Vec<u8>,
+    #[strategy(proptest::collection::vec(any::<u8>(), 100..=1_000))] input: Vec<u8>,
 ) {
     let mut compressed = easy_compress::<Reference>(&input).unwrap();
 
