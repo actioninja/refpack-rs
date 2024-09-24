@@ -92,8 +92,8 @@ pub const LONG_LENGTH_MAX: u16 = 1_028;
 /// 1. mask first byte: `(byte0 & 0b0110_0000)` = `0PP0-0000`
 /// 2. shift left by 3: `(0PP0-0000 << 3)` = `0000-00PP--0000-0000`
 /// 3. OR with second:  `(0000-00PP--0000-0000 | 0000-0000--PPPP-PPPP)` =
-/// `0000-00PP--PPPP-PPPP` Another way to do this would be to first shift right
-/// by 5 and so on
+///    `0000-00PP--PPPP-PPPP` Another way to do this would be to first shift right
+///    by 5 and so on
 ///
 /// ## Key for description:
 /// - Len: Length of the command in bytes
@@ -142,10 +142,10 @@ pub const LONG_LENGTH_MAX: u16 = 1_028;
 /// We want to encode a literal length of 97
 ///
 /// 1. take `97 % 4` to get the "leftover" length - this will be used in next
-/// command following the literal
+///    command following the literal
 /// 2. take `(97 - 4) >> 2` to get the value to encode into the literal value
 /// 3. create a literal command with the result from 2, take that number of
-/// literals from the current literal buffer and write to stream
+///    literals from the current literal buffer and write to stream
 /// 4. in the next command, encode the leftover literal value from 1
 ///
 /// One extra unusual detail is that despite that it seems like te cap from the
