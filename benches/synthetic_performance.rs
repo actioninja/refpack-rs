@@ -31,19 +31,12 @@ fn random_vec(len: usize) -> Vec<u8> {
     iter::repeat_with(random::<u8>).take(len).collect()
 }
 
-fn random_increasing_vecs(num: usize, increase_interval: usize) -> Vec<Vec<u8>> {
-    let mut cur_size = increase_interval;
-    iter::repeat_with(|| {
-        let tmp = cur_size;
-        cur_size += increase_interval;
-        random_vec(tmp)
-    })
-    .take(num)
-    .collect()
-}
-
 fn repeating_vec(num: usize) -> Vec<u8> {
     (0..=255).cycle().take(num).collect()
+}
+
+fn zeros_vec(num: usize) -> Vec<u8> {
+    vec![0; num]
 }
 
 fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
@@ -63,6 +56,10 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     });
 
     let compressed = easy_compress::<Reference>(input_vec).unwrap();
+    assert_eq!(easy_decompress::<Reference>(&compressed).unwrap(), input_vec);
+
+    println!("Compressed size: {} -> {}", input_vec.len(), compressed.len());
+    println!("Compression ratio: {}", compressed.len() as f64 / input_vec.len() as f64);
 
     group.bench_with_input(
         BenchmarkId::new("easy_decompress", size),
@@ -102,54 +99,37 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     });
 }
 
-fn random_data_bench(c: &mut Criterion<WallTime>) {
-    let mut group = c.benchmark_group("Constant Length Random Input Data".to_string());
+fn increasing_data_sets_bench<S: Into<String>, F: FnMut(usize) -> Vec<u8>>(c: &mut Criterion<WallTime>,
+                                               group_name: S,
+                                               mut make_vec: F) {
+    let mut group = c.benchmark_group(group_name);
 
-    group.throughput(Throughput::Bytes(CONST_BENCH_LENGTH as u64));
+    for size in [
+        CONST_BENCH_LENGTH,
+        CONST_BENCH_LENGTH * 2,
+        CONST_BENCH_LENGTH * 4,
+        CONST_BENCH_LENGTH * 8,
+        CONST_BENCH_LENGTH * 16,
+        CONST_BENCH_LENGTH * 32,
+    ] {
+        group.throughput(Throughput::Bytes(size as u64));
 
-    let constant_input = random_vec(CONST_BENCH_LENGTH);
-
-    bench_set(&mut group, &constant_input);
-
-    group.finish();
+        let random_input = make_vec(size);
+        bench_set(&mut group, &random_input);
+    }
+    group.finish()
 }
 
 fn random_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
-    let mut group = c.benchmark_group("Random Input Data Increasing");
-
-    for size in [
-        CONST_BENCH_LENGTH,
-        CONST_BENCH_LENGTH * 2,
-        CONST_BENCH_LENGTH * 4,
-        CONST_BENCH_LENGTH * 8,
-        CONST_BENCH_LENGTH * 16,
-        CONST_BENCH_LENGTH * 32,
-    ] {
-        group.throughput(Throughput::Bytes(size as u64));
-
-        let random_input = random_vec(size);
-        bench_set(&mut group, &random_input);
-    }
-    group.finish()
+    increasing_data_sets_bench(c, "Random Input Data Increasing", random_vec)
 }
 
 fn repeating_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
-    let mut group = c.benchmark_group("Repeating Input Data Increasing");
+    increasing_data_sets_bench(c, "Repeating Input Data Increasing", repeating_vec)
+}
 
-    for size in [
-        CONST_BENCH_LENGTH,
-        CONST_BENCH_LENGTH * 2,
-        CONST_BENCH_LENGTH * 4,
-        CONST_BENCH_LENGTH * 8,
-        CONST_BENCH_LENGTH * 16,
-        CONST_BENCH_LENGTH * 32,
-    ] {
-        group.throughput(Throughput::Bytes(size as u64));
-
-        let random_input = repeating_vec(size);
-        bench_set(&mut group, &random_input);
-    }
-    group.finish()
+fn zeros_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
+    increasing_data_sets_bench(c, "All Zero Input Data Increasing", zeros_vec)
 }
 
 const BENCH_FILE_DIR: &str = "benches/bench_files/";
@@ -196,6 +176,8 @@ fn files_bench(c: &mut Criterion<WallTime>) {
     entries.sort();
 
     for file in entries {
+        println!("File: {:?}", file.file_name().unwrap());
+
         let mut group = c.benchmark_group(format!("File {:?}", file.file_name().unwrap()));
 
         let input = fs::read(file).unwrap();
@@ -215,9 +197,9 @@ criterion_group!(
     name = benches;
     config = Criterion::default()
     .noise_threshold(0.02);
-    targets = random_data_bench,
-    random_increasing_data_sets_bench,
+    targets = random_increasing_data_sets_bench,
     repeating_increasing_data_sets_bench,
+    zeros_increasing_data_sets_bench,
     files_bench
 );
 criterion_main!(benches);
