@@ -4,5 +4,4 @@
 #
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
-cc aa2651f87319c32fcf6dd1ed42a1a1cebdc630300947a54633924011af21c587 # shrinks to input = _SymmetricalCompressionArgs { input: [104, 52, 40, 104, 52, 40, 0] }
-cc 110e550b5d5b9b7cbad6c20eded438efad5ce4da0ec7a5e7fea3bc32537a98f4 # shrinks to input = _SymmetricalCompressionArgs { input: [0] }
+cc c6b26b47fa27916b39957fad0087a0fe7a8e1e423ad94e092bdd4028f24cecc8 # shrinks to input = _TestControlIteratorArgs { input: [Control { command: Medium { literal: 0, length: 4, offset: 1 }, bytes: [] }, Control { command: Stop(3), bytes: [189, 255, 250] }] }

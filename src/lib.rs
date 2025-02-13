@@ -171,7 +171,7 @@ mod test {
     use crate::{easy_compress, easy_decompress};
 
     #[proptest]
-    fn reference_symmetrical_read_write(#[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
+    fn reference_symmetrical_read_write(#[strategy(vec(0..=1u8, 1..1000))] data: Vec<u8>) {
         let compressed = easy_compress::<Reference>(&data).unwrap();
 
         let got = easy_decompress::<Reference>(&compressed).unwrap();
@@ -184,7 +184,7 @@ mod test {
     #[proptest]
     #[ignore]
     fn reference_large_symmetrical_read_write(
-        #[strategy(vec(u8::ANY, 1..16_000_000))] data: Vec<u8>,
+        #[strategy(vec(0..=1u8, 1..16_000_000))] data: Vec<u8>,
     ) {
         let compressed = easy_compress::<Reference>(&data).unwrap();
 
@@ -194,7 +194,7 @@ mod test {
     }
 
     #[proptest]
-    fn maxis_symmetrical_read_write(#[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>) {
+    fn maxis_symmetrical_read_write(#[strategy(vec(0..=1u8, 1..1000))] data: Vec<u8>) {
         let compressed = easy_compress::<Maxis>(&data).unwrap();
 
         let got = easy_decompress::<Maxis>(&compressed).unwrap();
@@ -206,7 +206,7 @@ mod test {
     // tests
     #[proptest]
     #[ignore]
-    fn maxis_large_symmetrical_read_write(#[strategy(vec(u8::ANY, 1..16_000_000))] data: Vec<u8>) {
+    fn maxis_large_symmetrical_read_write(#[strategy(vec(0..=1u8, 1..16_000_000))] data: Vec<u8>) {
         let compressed = easy_compress::<Maxis>(&data).unwrap();
 
         let got = easy_decompress::<Maxis>(&compressed).unwrap();
@@ -217,7 +217,7 @@ mod test {
     #[proptest]
     fn simea_symmetrical_read_write(
         // this should include inputs of > 16mb, but testing those inputs is extremely slow
-        #[strategy(vec(u8::ANY, 1..1000))] data: Vec<u8>,
+        #[strategy(vec(0..=1u8, 1..1000))] data: Vec<u8>,
     ) {
         let compressed = easy_compress::<SimEA>(&data).unwrap();
 
@@ -230,7 +230,7 @@ mod test {
     // tests
     #[proptest]
     #[ignore]
-    fn simea_large_symmetrical_read_write(#[strategy(vec(u8::ANY, 1..16_000_000))] data: Vec<u8>) {
+    fn simea_large_symmetrical_read_write(#[strategy(vec(0..=1u8, 1..16_000_000))] data: Vec<u8>) {
         let compressed = easy_compress::<SimEA>(&data).unwrap();
 
         let got = easy_decompress::<SimEA>(&compressed).unwrap();

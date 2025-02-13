@@ -156,10 +156,10 @@ mod test {
 
     #[proptest(ProptestConfig { cases: 100_000, ..Default::default() })]
     fn symmetrical_compression(#[filter(# input.len() > 0)] input: Vec<u8>) {
-        let compressed = easy_compress::<Reference>(&input).unwrap();
-        let decompressed = easy_decompress::<Reference>(&compressed).unwrap();
+        let compressed = easy_compress::<Reference>(&input);
+        let decompressed = compressed.and_then(|x| easy_decompress::<Reference>(&x));
 
-        prop_assert_eq!(input, decompressed);
+        prop_assert!(decompressed.is_ok_and(|x| input == x));
     }
 
     #[proptest(ProptestConfig {
@@ -169,10 +169,10 @@ mod test {
     fn symmetrical_compression_large_input(
         #[strategy(proptest::collection::vec(any::<u8>(), 2_000..=2_000))] input: Vec<u8>,
     ) {
-        let compressed = easy_compress::<Reference>(&input).unwrap();
-        let decompressed = easy_decompress::<Reference>(&compressed).unwrap();
+        let compressed = easy_compress::<Reference>(&input);
+        let decompressed = compressed.and_then(|x| easy_decompress::<Reference>(&x));
 
-        prop_assert_eq!(input, decompressed);
+        prop_assert!(decompressed.is_ok_and(|x| input == x));
     }
 
     mod rle_decode {
