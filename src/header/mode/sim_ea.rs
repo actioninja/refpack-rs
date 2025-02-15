@@ -47,8 +47,7 @@ impl Flags {
     }
 
     fn write(self) -> u8 {
-        (self.big_decompressed as u8) << 7
-            | (self.restricted as u8) << 6
+        ((self.big_decompressed as u8) << 7) | ((self.restricted as u8) << 6)
             | (self.compressed_size_present as u8)
             // magic number in the flags field, unsure if this is verified by any implementation
             // mentioned on the niotso wiki.

@@ -56,10 +56,20 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     });
 
     let compressed = easy_compress::<Reference>(input_vec).unwrap();
-    assert_eq!(easy_decompress::<Reference>(&compressed).unwrap(), input_vec);
+    assert_eq!(
+        easy_decompress::<Reference>(&compressed).unwrap(),
+        input_vec
+    );
 
-    println!("Compressed size: {} -> {}", input_vec.len(), compressed.len());
-    println!("Compression ratio: {}", compressed.len() as f64 / input_vec.len() as f64);
+    println!(
+        "Compressed size: {} -> {}",
+        input_vec.len(),
+        compressed.len()
+    );
+    println!(
+        "Compression ratio: {}",
+        compressed.len() as f64 / input_vec.len() as f64
+    );
 
     group.bench_with_input(
         BenchmarkId::new("easy_decompress", size),
@@ -99,9 +109,11 @@ fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     });
 }
 
-fn increasing_data_sets_bench<S: Into<String>, F: FnMut(usize) -> Vec<u8>>(c: &mut Criterion<WallTime>,
-                                               group_name: S,
-                                               mut make_vec: F) {
+fn increasing_data_sets_bench<S: Into<String>, F: FnMut(usize) -> Vec<u8>>(
+    c: &mut Criterion<WallTime>,
+    group_name: S,
+    mut make_vec: F,
+) {
     let mut group = c.benchmark_group(group_name);
 
     for size in [

@@ -140,6 +140,8 @@
 #![allow(clippy::cast_lossless)]
 // and above
 #![allow(clippy::cast_possible_wrap)]
+// above
+#![allow(clippy::cast_precision_loss)]
 // Annoying and wrong, RefPack is a compression scheme.
 #![allow(clippy::doc_markdown)]
 // Default::default() is more idiomatic imo

@@ -418,7 +418,7 @@ impl Command {
         let offset_adjusted = offset - 1;
 
         let first = ((offset_adjusted & 0b0000_0011_0000_0000) >> 3) as u8
-            | (length_adjusted & 0b0000_0111) << 2
+            | ((length_adjusted & 0b0000_0111) << 2)
             | literal & 0b0000_0011;
         let second = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
 
@@ -444,7 +444,7 @@ impl Command {
         let offset_adjusted = offset - 1;
 
         let first = 0b1000_0000 | length_adjusted & 0b0011_1111;
-        let second = (literal & 0b0000_0011) << 6 | (offset_adjusted >> 8) as u8;
+        let second = ((literal & 0b0000_0011) << 6) | (offset_adjusted >> 8) as u8;
         let third = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
 
         writer.write_u8(first)?;

@@ -34,20 +34,29 @@
 //! ```
 //!
 //! See [Command] for a specification of control codes
-pub(crate) mod prefix_search;
+mod fast;
 pub(crate) mod match_length;
 mod optimal;
-mod fast;
+pub(crate) mod prefix_search;
 
 
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
-use crate::data::control::{LONG_LENGTH_MAX, LONG_LENGTH_MIN, LONG_OFFSET_MAX, MEDIUM_LENGTH_MAX, MEDIUM_LENGTH_MIN, MEDIUM_OFFSET_MAX, SHORT_LENGTH_MAX, SHORT_OFFSET_MAX};
+use crate::data::compression::optimal::encode_slice_hc;
+use crate::data::control::{
+    LONG_LENGTH_MAX,
+    LONG_LENGTH_MIN,
+    LONG_OFFSET_MAX,
+    MEDIUM_LENGTH_MAX,
+    MEDIUM_LENGTH_MIN,
+    MEDIUM_OFFSET_MAX,
+    SHORT_LENGTH_MAX,
+    SHORT_OFFSET_MAX,
+};
 use crate::format::Format;
 use crate::header::mode::Mode as HeaderMode;
 use crate::header::Header;
 use crate::{RefPackError, RefPackResult};
-use crate::data::compression::optimal::encode_slice_hc;
 
 // used in both fast and high compression algorithms
 fn bytes_for_match(length: usize, offset: usize) -> Option<(Option<usize>, usize)> {
@@ -57,25 +66,21 @@ fn bytes_for_match(length: usize, offset: usize) -> Option<(Option<usize>, usize
     if length >= LONG_LENGTH_MIN as usize {
         if length > MEDIUM_LENGTH_MAX as usize || offset > MEDIUM_OFFSET_MAX as usize {
             Some((Some(4), LONG_LENGTH_MAX as usize))
+        } else if length > SHORT_LENGTH_MAX as usize || offset > SHORT_OFFSET_MAX as usize {
+            Some((Some(3), MEDIUM_LENGTH_MAX as usize))
         } else {
-            if length > SHORT_LENGTH_MAX as usize || offset > SHORT_OFFSET_MAX as usize {
-                Some((Some(3), MEDIUM_LENGTH_MAX as usize))
-            } else {
-                Some((Some(2), SHORT_LENGTH_MAX as usize))
-            }
+            Some((Some(2), SHORT_LENGTH_MAX as usize))
+        }
+    } else if offset <= SHORT_OFFSET_MAX as usize {
+        Some((Some(2), SHORT_LENGTH_MAX as usize))
+    } else if offset <= MEDIUM_OFFSET_MAX as usize {
+        if length >= MEDIUM_LENGTH_MIN as usize {
+            Some((Some(3), MEDIUM_LENGTH_MAX as usize))
+        } else {
+            Some((None, MEDIUM_LENGTH_MIN as usize - 1))
         }
     } else {
-        if offset <= SHORT_OFFSET_MAX as usize {
-            Some((Some(2), SHORT_LENGTH_MAX as usize))
-        } else if offset <= MEDIUM_OFFSET_MAX as usize{
-            if length >= MEDIUM_LENGTH_MIN as usize {
-                Some((Some(3), MEDIUM_LENGTH_MAX as usize))
-            } else {
-                Some((None, MEDIUM_LENGTH_MIN as usize - 1))
-            }
-        } else {
-            Some((None, LONG_LENGTH_MIN as usize - 1))
-        }
+        Some((None, LONG_LENGTH_MIN as usize - 1))
     }
 }
 
@@ -114,7 +119,7 @@ pub fn compress<F: Format>(
 
     let mut in_buffer = vec![0_u8; length];
     reader.read_exact(&mut in_buffer)?;
-    let controls = encode_slice_hc(&in_buffer)?;
+    let controls = encode_slice_hc(&in_buffer);
 
     // TODO make a switch between fast/optimal
     // let controls = encode_stream(reader, length)?;

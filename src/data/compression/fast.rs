@@ -1,10 +1,19 @@
 use std::cmp::max;
 use std::collections::HashMap;
 use std::io::{Read, Seek};
+
 use crate::data::compression::bytes_for_match;
 use crate::data::compression::match_length::match_length;
 use crate::data::compression::prefix_search::prefix;
-use crate::data::control::{Command, Control, COPY_LITERAL_MAX, LITERAL_MAX, LONG_LENGTH_MAX, LONG_OFFSET_MAX, SHORT_OFFSET_MIN};
+use crate::data::control::{
+    Command,
+    Control,
+    COPY_LITERAL_MAX,
+    LITERAL_MAX,
+    LONG_LENGTH_MAX,
+    LONG_OFFSET_MAX,
+    SHORT_OFFSET_MIN,
+};
 use crate::RefPackError;
 
 // Optimization trick from libflate_lz77
@@ -92,20 +101,29 @@ pub(crate) fn encode_stream(
         // get the position of the prefix in the table (if it exists)
         let matched = prefix_table.insert(key, i as u32);
 
-        let pair = matched.map(|x| x.into_iter().filter_map(|matched| {
-            let matched = matched as usize;
-            let distance = i - matched;
-            if distance > LONG_OFFSET_MAX as usize || distance < SHORT_OFFSET_MIN as usize {
-                None
-            } else {
-                // find the longest common prefix
-                let max_copy_len = LONG_LENGTH_MAX as usize;
-                let match_length = match_length(&in_buffer, i, matched, max_copy_len - 3, 0);
+        let pair = matched.and_then(|x| {
+            x.into_iter()
+                .filter_map(|matched| {
+                    let matched = matched as usize;
+                    let distance = i - matched;
+                    if distance > LONG_OFFSET_MAX as usize || distance < SHORT_OFFSET_MIN as usize {
+                        None
+                    } else {
+                        // find the longest common prefix
+                        let max_copy_len = LONG_LENGTH_MAX as usize;
+                        let match_length =
+                            match_length(&in_buffer, i, matched, max_copy_len - 3, 0);
 
-                let num_bytes = bytes_for_match(match_length, distance)?.0?;
-                Some((matched, match_length, match_length as f64 / num_bytes as f64))
-            }
-        }).max_by(|(_, _, r1), (_, _, r2)| r1.total_cmp(r2))).flatten();
+                        let num_bytes = bytes_for_match(match_length, distance)?.0?;
+                        Some((
+                            matched,
+                            match_length,
+                            match_length as f64 / num_bytes as f64,
+                        ))
+                    }
+                })
+                .max_by(|(_, _, r1), (_, _, r2)| r1.total_cmp(r2))
+        });
 
         if let Some((found, match_length, _)) = pair {
             let distance = i - found;
