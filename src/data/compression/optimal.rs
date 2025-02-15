@@ -7,6 +7,8 @@ use crate::data::compression::prefix_search::PrefixSearcher;
 use crate::data::control::Command::Stop;
 use crate::data::control::{Command, Control, COPY_LITERAL_MAX, LITERAL_MAX};
 
+const HASH_CHAINING_LEVELS: usize = 4;
+
 // state is packed into 32 bits for SIMD optimization purposes
 // 31: literal/copy command flag
 // when 0:
@@ -110,7 +112,7 @@ fn update_state_simd(
     const CHUNK_SIZE: usize = 4;
 
     let new_cost = cur_cost + command_bytes;
-    
+
     let mut cost_state_chunks = cost_state[range.clone()].chunks_exact_mut(CHUNK_SIZE);
     let mut command_state_chunks = command_state[range].chunks_exact_mut(CHUNK_SIZE);
 
@@ -172,7 +174,7 @@ pub(crate) fn encode_slice_hc(input: &[u8]) -> Vec<Control> {
         }];
     }
 
-    let mut prev = PrefixSearcher::<4>::build(input);
+    let mut prev = PrefixSearcher::<HASH_CHAINING_LEVELS>::build(input);
 
     let mut command_state = vec![CommandState::default().0; input_length];
     let mut cost_state = vec![u32::MAX; input_length];
