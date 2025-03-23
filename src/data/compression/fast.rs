@@ -1,6 +1,5 @@
 use std::cmp::max;
 use std::collections::HashMap;
-use std::io::{Read, Seek};
 
 use crate::data::compression::bytes_for_match;
 use crate::data::compression::match_length::match_length;
@@ -14,7 +13,6 @@ use crate::data::control::{
     LONG_OFFSET_MAX,
     SHORT_OFFSET_MIN,
 };
-use crate::RefPackError;
 
 // Optimization trick from libflate_lz77
 // Faster lookups for very large tables
@@ -83,20 +81,15 @@ impl LargePrefixTable {
 
 /// Reads from an incoming `Read` reader and compresses and encodes to
 /// `Vec<Control>`
-pub(crate) fn encode_stream(
-    reader: &mut (impl Read + Seek),
-    length: usize,
-) -> Result<Vec<Control>, RefPackError> {
-    let mut in_buffer = vec![0_u8; length];
-    reader.read_exact(&mut in_buffer)?;
+pub(crate) fn encode(input: &[u8]) -> Vec<Control> {
     let mut controls: Vec<Control> = vec![];
-    let mut prefix_table = PrefixTable::new(in_buffer.len());
+    let mut prefix_table = PrefixTable::new(input.len());
 
     let mut i = 0;
-    let end = max(3, in_buffer.len()) - 3;
+    let end = max(3, input.len()) - 3;
     let mut literal_block: Vec<u8> = Vec::with_capacity(LITERAL_MAX as usize);
     while i < end {
-        let key = prefix(&in_buffer[i..]);
+        let key = prefix(&input[i..]);
 
         // get the position of the prefix in the table (if it exists)
         let matched = prefix_table.insert(key, i as u32);
@@ -111,8 +104,7 @@ pub(crate) fn encode_stream(
                     } else {
                         // find the longest common prefix
                         let max_copy_len = LONG_LENGTH_MAX as usize;
-                        let match_length =
-                            match_length(&in_buffer, i, matched, max_copy_len - 3, 0);
+                        let match_length = match_length(input, i, matched, max_copy_len - 3, 0);
 
                         let num_bytes = bytes_for_match(match_length, distance)?.0?;
                         Some((
@@ -150,12 +142,12 @@ pub(crate) fn encode_stream(
                 if k >= end {
                     break;
                 }
-                prefix_table.insert(prefix(&in_buffer[k..]), k as u32);
+                prefix_table.insert(prefix(&input[k..]), k as u32);
             }
 
             i += match_length;
         } else {
-            literal_block.push(in_buffer[i]);
+            literal_block.push(input[i]);
             i += 1;
             // If it's reached the limit, push the block immediately and clear the running
             // block
@@ -166,8 +158,8 @@ pub(crate) fn encode_stream(
         }
     }
     // Add remaining literals if there are any
-    if i < in_buffer.len() {
-        literal_block.extend_from_slice(&in_buffer[i..]);
+    if i < input.len() {
+        literal_block.extend_from_slice(&input[i..]);
     }
     // Extremely similar to block up above, but with a different control type
     if literal_block.len() > 3 {
@@ -178,5 +170,5 @@ pub(crate) fn encode_stream(
         controls.push(Control::new_stop(&literal_block));
     }
 
-    Ok(controls)
+    controls
 }

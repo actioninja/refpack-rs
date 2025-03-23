@@ -9,7 +9,7 @@
 
 use proptest::prelude::*;
 use refpack::format::Reference;
-use refpack::{easy_compress, easy_decompress};
+use refpack::{easy_compress, easy_decompress, CompressionOptions};
 use refpack_sys::{refpack_compress, refpack_decompress};
 use test_strategy::proptest;
 
@@ -29,7 +29,7 @@ fn rust_compression_symmetrical(
 fn rust_decompression_symmetrical(
     #[strategy(proptest::collection::vec(any::<u8>(), 100..=1_000))] input: Vec<u8>,
 ) {
-    let mut compressed = easy_compress::<Reference>(&input).unwrap();
+    let mut compressed = easy_compress::<Reference>(&input, CompressionOptions::Fast).unwrap();
 
     let decompressed = refpack_decompress(&mut compressed);
 

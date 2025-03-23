@@ -22,6 +22,7 @@ use criterion::{
     Throughput,
 };
 use rand::prelude::*;
+use refpack::data::compression::CompressionOptions;
 use refpack::format::Reference;
 use refpack::{compress, decompress, easy_compress, easy_decompress};
 
@@ -41,72 +42,104 @@ fn zeros_vec(num: usize) -> Vec<u8> {
 
 fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     let size = input_vec.len();
-    group.bench_with_input(
-        BenchmarkId::new("easy_compress", size),
-        &input_vec,
-        |b, i| b.iter(|| easy_compress::<Reference>(i)),
-    );
 
-    group.bench_with_input(BenchmarkId::new("compress", size), &input_vec, |b, i| {
-        b.iter(|| {
-            let mut in_buf = Cursor::new(i);
-            let mut out_buf = Cursor::new(vec![]);
-            compress::<Reference>(size, black_box(&mut in_buf), black_box(&mut out_buf))
-        })
-    });
+    for compression_options in [CompressionOptions::Fast, CompressionOptions::Optimal] {
+        group.bench_with_input(
+            BenchmarkId::new(format!("easy_compress {:?}", compression_options), size),
+            &input_vec,
+            |b, i| b.iter(|| easy_compress::<Reference>(i, compression_options)),
+        );
 
-    let compressed = easy_compress::<Reference>(input_vec).unwrap();
-    assert_eq!(
-        easy_decompress::<Reference>(&compressed).unwrap(),
-        input_vec
-    );
+        group.bench_with_input(
+            BenchmarkId::new(format!("compress {:?}", compression_options), size),
+            &input_vec,
+            |b, i| {
+                b.iter(|| {
+                    let mut in_buf = Cursor::new(i);
+                    let mut out_buf = Cursor::new(vec![]);
+                    compress::<Reference>(
+                        size,
+                        black_box(&mut in_buf),
+                        black_box(&mut out_buf),
+                        compression_options,
+                    )
+                })
+            },
+        );
 
-    println!(
-        "Compressed size: {} -> {}",
-        input_vec.len(),
-        compressed.len()
-    );
-    println!(
-        "Compression ratio: {}",
-        compressed.len() as f64 / input_vec.len() as f64
-    );
+        let compressed = easy_compress::<Reference>(input_vec, compression_options).unwrap();
+        assert_eq!(
+            easy_decompress::<Reference>(&compressed).unwrap(),
+            input_vec
+        );
 
-    group.bench_with_input(
-        BenchmarkId::new("easy_decompress", size),
-        &compressed,
-        |b, i| b.iter(|| easy_decompress::<Reference>(i)),
-    );
+        println!(
+            "Compressed size: {} -> {}",
+            input_vec.len(),
+            compressed.len()
+        );
+        println!(
+            "Compression ratio: {}",
+            compressed.len() as f64 / input_vec.len() as f64
+        );
 
-    group.bench_with_input(BenchmarkId::new("decompress", size), &compressed, |b, i| {
-        b.iter(|| {
-            let mut in_buf = Cursor::new(i);
-            let mut out_buf = Cursor::new(vec![]);
-            decompress::<Reference>(black_box(&mut in_buf), black_box(&mut out_buf))
-        })
-    });
+        group.bench_with_input(
+            BenchmarkId::new(
+                format!("easy_decompress ({:?} compress)", compression_options),
+                size,
+            ),
+            &compressed,
+            |b, i| b.iter(|| easy_decompress::<Reference>(i)),
+        );
 
-    group.bench_with_input(
-        BenchmarkId::new("symmetrical easy", size),
-        &input_vec,
-        |b, i| {
-            b.iter(|| {
-                let compressed = easy_compress::<Reference>(i).unwrap();
-                easy_decompress::<Reference>(black_box(&compressed)).unwrap()
-            })
-        },
-    );
+        group.bench_with_input(
+            BenchmarkId::new(
+                format!("decompress ({:?} compress)", compression_options),
+                size,
+            ),
+            &compressed,
+            |b, i| {
+                b.iter(|| {
+                    let mut in_buf = Cursor::new(i);
+                    let mut out_buf = Cursor::new(vec![]);
+                    decompress::<Reference>(black_box(&mut in_buf), black_box(&mut out_buf))
+                })
+            },
+        );
 
-    group.bench_with_input(BenchmarkId::new("symmetrical", size), &input_vec, |b, i| {
-        b.iter(|| {
-            let mut in_buf = Cursor::new(i);
-            let mut out_buf = Cursor::new(vec![]);
-            let mut final_buf = Cursor::new(vec![]);
+        group.bench_with_input(
+            BenchmarkId::new(format!("easy symmetrical {:?}", compression_options), size),
+            &input_vec,
+            |b, i| {
+                b.iter(|| {
+                    let compressed = easy_compress::<Reference>(i, compression_options).unwrap();
+                    easy_decompress::<Reference>(black_box(&compressed)).unwrap()
+                })
+            },
+        );
 
-            let _ = compress::<Reference>(size, black_box(&mut in_buf), black_box(&mut out_buf));
-            out_buf.set_position(0);
-            let _ = decompress::<Reference>(black_box(&mut out_buf), black_box(&mut final_buf));
-        })
-    });
+        group.bench_with_input(
+            BenchmarkId::new(format!("symmetrical {:?}", compression_options), size),
+            &input_vec,
+            |b, i| {
+                b.iter(|| {
+                    let mut in_buf = Cursor::new(i);
+                    let mut out_buf = Cursor::new(vec![]);
+                    let mut final_buf = Cursor::new(vec![]);
+
+                    let _ = compress::<Reference>(
+                        size,
+                        black_box(&mut in_buf),
+                        black_box(&mut out_buf),
+                        compression_options,
+                    );
+                    out_buf.set_position(0);
+                    let _ =
+                        decompress::<Reference>(black_box(&mut out_buf), black_box(&mut final_buf));
+                })
+            },
+        );
+    }
 }
 
 fn increasing_data_sets_bench<S: Into<String>, F: FnMut(usize) -> Vec<u8>>(
@@ -133,15 +166,15 @@ fn increasing_data_sets_bench<S: Into<String>, F: FnMut(usize) -> Vec<u8>>(
 }
 
 fn random_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
-    increasing_data_sets_bench(c, "Random Input Data Increasing", random_vec)
+    increasing_data_sets_bench(c, "Random Input Data Increasing Fast", random_vec);
 }
 
 fn repeating_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
-    increasing_data_sets_bench(c, "Repeating Input Data Increasing", repeating_vec)
+    increasing_data_sets_bench(c, "Repeating Input Data Increasing Fast", repeating_vec);
 }
 
 fn zeros_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
-    increasing_data_sets_bench(c, "All Zero Input Data Increasing", zeros_vec)
+    increasing_data_sets_bench(c, "All Zero Input Data Increasing Fast", zeros_vec);
 }
 
 const BENCH_FILE_DIR: &str = "benches/bench_files/";

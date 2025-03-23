@@ -151,12 +151,16 @@ mod test {
     use test_strategy::proptest;
 
     use super::*;
+    use crate::data::compression::CompressionOptions;
     use crate::format::Reference;
     use crate::{easy_compress, easy_decompress};
 
     #[proptest(ProptestConfig { cases: 100_000, ..Default::default() })]
-    fn symmetrical_compression(#[filter(# input.len() > 0)] input: Vec<u8>) {
-        let compressed = easy_compress::<Reference>(&input);
+    fn symmetrical_compression(
+        #[filter(# input.len() > 0)] input: Vec<u8>,
+        compression_options: CompressionOptions,
+    ) {
+        let compressed = easy_compress::<Reference>(&input, compression_options);
         let decompressed = compressed.and_then(|x| easy_decompress::<Reference>(&x));
 
         prop_assert!(decompressed.is_ok_and(|x| input == x));
@@ -168,8 +172,9 @@ mod test {
     })]
     fn symmetrical_compression_large_input(
         #[strategy(proptest::collection::vec(any::<u8>(), 2_000..=2_000))] input: Vec<u8>,
+        compression_options: CompressionOptions,
     ) {
-        let compressed = easy_compress::<Reference>(&input);
+        let compressed = easy_compress::<Reference>(&input, compression_options);
         let decompressed = compressed.and_then(|x| easy_decompress::<Reference>(&x));
 
         prop_assert!(decompressed.is_ok_and(|x| input == x));

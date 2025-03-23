@@ -42,6 +42,7 @@ pub(crate) mod prefix_search;
 
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
+use crate::data::compression::fast::encode;
 use crate::data::compression::optimal::encode_slice_hc;
 use crate::data::control::{
     LONG_LENGTH_MAX,
@@ -84,6 +85,15 @@ fn bytes_for_match(length: usize, offset: usize) -> Option<(Option<usize>, usize
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
+#[non_exhaustive]
+#[cfg_attr(test, derive(test_strategy::Arbitrary))]
+pub enum CompressionOptions {
+    #[default]
+    Fast,
+    Optimal,
+}
+
 /// Compress a data stream from a Reader to refpack format into a Writer.
 ///
 /// First parameter is the length; allows for compressing an arbitrary block
@@ -112,40 +122,12 @@ pub fn compress<F: Format>(
     length: usize,
     reader: &mut (impl Read + Seek),
     writer: &mut (impl Write + Seek),
+    compression_options: CompressionOptions,
 ) -> RefPackResult<()> {
-    if length == 0 {
-        return Err(RefPackError::EmptyInput);
-    }
-
-    let mut in_buffer = vec![0_u8; length];
-    reader.read_exact(&mut in_buffer)?;
-    let controls = encode_slice_hc(&in_buffer);
-
-    // TODO make a switch between fast/optimal
-    // let controls = encode_stream(reader, length)?;
-
-    let header_length = F::HeaderMode::length(length);
-
-    let header_position = writer.stream_position()?;
-    let data_start_pos = writer.seek(SeekFrom::Current(header_length as i64))?;
-
-    for control in controls {
-        control.write(writer)?;
-    }
-
-    let data_end_pos = writer.stream_position()?;
-
-    let compression_length = data_end_pos - data_start_pos;
-
-    let header = Header {
-        compressed_length: Some(compression_length as u32),
-        decompressed_length: length as u32,
-    };
-
-    writer.seek(SeekFrom::Start(header_position))?;
-
-    header.write::<F::HeaderMode>(writer)?;
-
+    let mut buf = vec![0; length];
+    reader.read_exact(buf.as_mut_slice())?;
+    let out = easy_compress::<F>(&buf, compression_options)?;
+    writer.write_all(&out)?;
     Ok(())
 }
 
@@ -163,10 +145,44 @@ pub fn compress<F: Format>(
 /// - [RefPackError::EmptyInput]: Length provided is 0
 /// - [RefPackError::Io]: Generic IO error when reading or writing
 #[inline]
-pub fn easy_compress<F: Format>(input: &[u8]) -> Result<Vec<u8>, RefPackError> {
-    let mut reader = Cursor::new(input);
+pub fn easy_compress<F: Format>(
+    input: &[u8],
+    compression_options: CompressionOptions,
+) -> Result<Vec<u8>, RefPackError> {
     let mut writer: Cursor<Vec<u8>> = Cursor::new(vec![]);
-    compress::<F>(input.len(), &mut reader, &mut writer)?;
+
+    let length = input.len();
+
+    if input.is_empty() {
+        return Err(RefPackError::EmptyInput);
+    }
+
+    let controls = match compression_options {
+        CompressionOptions::Fast => encode(input),
+        CompressionOptions::Optimal => encode_slice_hc(input),
+    };
+
+    let header_length = F::HeaderMode::length(length);
+
+    let header_position = writer.stream_position()?;
+    let data_start_pos = writer.seek(SeekFrom::Current(header_length as i64))?;
+
+    for control in controls {
+        control.write(&mut writer)?;
+    }
+
+    let data_end_pos = writer.stream_position()?;
+
+    let compression_length = data_end_pos - data_start_pos;
+
+    let header = Header {
+        compressed_length: Some(compression_length as u32),
+        decompressed_length: length as u32,
+    };
+
+    writer.seek(SeekFrom::Start(header_position))?;
+
+    header.write::<F::HeaderMode>(&mut writer)?;
     Ok(writer.into_inner())
 }
 
@@ -182,14 +198,26 @@ mod test {
     #[ignore]
     fn large_input_compression(
         #[strategy(proptest::collection::vec(any::< u8 > (), 100_000..=500_000))] input: Vec<u8>,
+        #[strategy(any::<CompressionOptions>())] options: CompressionOptions,
     ) {
-        let _unused = easy_compress::<Reference>(&input).unwrap();
+        let _unused = easy_compress::<Reference>(&input, options).unwrap();
+    }
+
+    #[proptest]
+    fn reader_compression(
+        #[strategy(proptest::collection::vec(any::< u8 > (), 1..=256))] input: Vec<u8>,
+        #[strategy(any::<CompressionOptions>())] options: CompressionOptions,
+    ) {
+        let length = input.len();
+        let mut in_cursor = Cursor::new(input);
+        let mut out_cursor = Cursor::new(Vec::new());
+        compress::<Reference>(length, &mut in_cursor, &mut out_cursor, options).unwrap();
     }
 
     #[test]
     fn empty_input_yields_error() {
         let input = vec![];
-        let result = easy_compress::<Reference>(&input);
+        let result = easy_compress::<Reference>(&input, CompressionOptions::Fast);
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), RefPackError::EmptyInput));
     }

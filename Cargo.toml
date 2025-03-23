@@ -34,6 +34,3 @@ harness = false
 [[bench]]
 name = "control"
 harness = false
-
-[profile.release]
-debug = true
