@@ -32,6 +32,13 @@ fn random_vec(len: usize) -> Vec<u8> {
     iter::repeat_with(random::<u8>).take(len).collect()
 }
 
+fn random_bool_vec(len: usize) -> Vec<u8> {
+    iter::repeat_with(random::<bool>)
+        .map(|b| b.into())
+        .take(len)
+        .collect()
+}
+
 fn repeating_vec(num: usize) -> Vec<u8> {
     (0..=255).cycle().take(num).collect()
 }
@@ -166,15 +173,19 @@ fn increasing_data_sets_bench<S: Into<String>, F: FnMut(usize) -> Vec<u8>>(
 }
 
 fn random_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
-    increasing_data_sets_bench(c, "Random Input Data Increasing Fast", random_vec);
+    increasing_data_sets_bench(c, "Random Input Data Increasing", random_vec);
+}
+
+fn random_bool_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
+    increasing_data_sets_bench(c, "Random Boolean Input Data Increasing", random_bool_vec);
 }
 
 fn repeating_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
-    increasing_data_sets_bench(c, "Repeating Input Data Increasing Fast", repeating_vec);
+    increasing_data_sets_bench(c, "Repeating Input Data Increasing", repeating_vec);
 }
 
 fn zeros_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
-    increasing_data_sets_bench(c, "All Zero Input Data Increasing Fast", zeros_vec);
+    increasing_data_sets_bench(c, "All Zero Input Data Increasing", zeros_vec);
 }
 
 const BENCH_FILE_DIR: &str = "benches/bench_files/";
@@ -243,6 +254,7 @@ criterion_group!(
     config = Criterion::default()
     .noise_threshold(0.02);
     targets = random_increasing_data_sets_bench,
+    random_bool_increasing_data_sets_bench,
     repeating_increasing_data_sets_bench,
     zeros_increasing_data_sets_bench,
     files_bench
