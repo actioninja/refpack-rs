@@ -26,7 +26,8 @@ use refpack::data::compression::CompressionOptions;
 use refpack::format::Reference;
 use refpack::{compress, decompress, easy_compress, easy_decompress};
 
-const CONST_BENCH_LENGTH: usize = 8096;
+const CONST_BENCH_LENGTHS: [usize; 7] =
+    [1 << 6, 1 << 8, 1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18];
 
 fn random_vec(len: usize) -> Vec<u8> {
     iter::repeat_with(random::<u8>).take(len).collect()
@@ -156,14 +157,7 @@ fn increasing_data_sets_bench<S: Into<String>, F: FnMut(usize) -> Vec<u8>>(
 ) {
     let mut group = c.benchmark_group(group_name);
 
-    for size in [
-        CONST_BENCH_LENGTH,
-        CONST_BENCH_LENGTH * 2,
-        CONST_BENCH_LENGTH * 4,
-        CONST_BENCH_LENGTH * 8,
-        CONST_BENCH_LENGTH * 16,
-        CONST_BENCH_LENGTH * 32,
-    ] {
+    for size in CONST_BENCH_LENGTHS {
         group.throughput(Throughput::Bytes(size as u64));
 
         let random_input = make_vec(size);
