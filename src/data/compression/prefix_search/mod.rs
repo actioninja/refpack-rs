@@ -1,3 +1,5 @@
+pub(crate) mod hash_table;
+
 use std::cmp::min;
 use std::collections::HashMap;
 
