@@ -38,7 +38,7 @@ mod fast;
 pub(crate) mod match_length;
 mod optimal;
 pub(crate) mod prefix_search;
-
+mod fastest;
 
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
@@ -89,6 +89,7 @@ fn bytes_for_match(length: usize, offset: usize) -> Option<(Option<usize>, usize
 #[non_exhaustive]
 #[cfg_attr(test, derive(test_strategy::Arbitrary))]
 pub enum CompressionOptions {
+    Fastest,
     #[default]
     Fast,
     Optimal,
@@ -158,6 +159,7 @@ pub fn easy_compress<F: Format>(
     }
 
     let controls = match compression_options {
+        CompressionOptions::Fastest => fastest::encode(input),
         CompressionOptions::Fast => encode(input),
         CompressionOptions::Optimal => encode_slice_hc(input),
     };

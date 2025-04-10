@@ -51,7 +51,11 @@ fn zeros_vec(num: usize) -> Vec<u8> {
 fn bench_set(group: &mut BenchmarkGroup<WallTime>, input_vec: &[u8]) {
     let size = input_vec.len();
 
-    for compression_options in [CompressionOptions::Fast, CompressionOptions::Optimal] {
+    for compression_options in [
+        CompressionOptions::Fastest,
+        CompressionOptions::Fast,
+        CompressionOptions::Optimal,
+    ] {
         group.bench_with_input(
             BenchmarkId::new(format!("easy_compress {:?}", compression_options), size),
             &input_vec,
