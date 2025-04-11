@@ -7,7 +7,7 @@ use crate::data::compression::prefix_search::PrefixSearcher;
 use crate::data::control::Command::Stop;
 use crate::data::control::{Command, Control, COPY_LITERAL_MAX, LITERAL_MAX};
 
-const HASH_CHAINING_LEVELS: usize = 4;
+pub(crate) const HASH_CHAINING_LEVELS: usize = 4;
 
 // state is packed into 32 bits for SIMD optimization purposes
 // 31: literal/copy command flag
@@ -164,7 +164,7 @@ fn update_state_simd(
     }
 }
 
-pub(crate) fn encode_slice_hc(input: &[u8]) -> Vec<Control> {
+pub(crate) fn encode_slice_hc<'a, PS: PrefixSearcher<'a>>(input: &'a [u8]) -> Vec<Control> {
     let input_length = input.len();
 
     if input_length <= 3 {
@@ -174,7 +174,7 @@ pub(crate) fn encode_slice_hc(input: &[u8]) -> Vec<Control> {
         }];
     }
 
-    let mut prev = PrefixSearcher::<HASH_CHAINING_LEVELS>::build(input);
+    let mut prev = PS::build(input);
 
     let mut command_state = vec![CommandState::default().0; input_length];
     let mut cost_state = vec![u32::MAX; input_length];
@@ -187,7 +187,7 @@ pub(crate) fn encode_slice_hc(input: &[u8]) -> Vec<Control> {
         let cur_command = command_state[pos as usize];
         let cur_literals = CommandState(cur_command).num_literals();
 
-        // there can't be any matches on the last 3 bytes
+        // there can't be any matches on the last 3 bytes since matches must always be at least 3 bytes
         if pos < (input_length - 3) as u32 {
             let match_start_pos = pos + 1;
 
@@ -209,11 +209,6 @@ pub(crate) fn encode_slice_hc(input: &[u8]) -> Vec<Control> {
                                     &mut command_state,
                                     cur_cost,
                                     command_bytes as u32,
-                                    // pos,
-                                    // match_length_start,
-                                    // match_length_end,
-                                    // offset as u32,
-                                    // cur_literals,
                                     range,
                                     CommandState::command(
                                         offset as u32,

@@ -1,8 +1,8 @@
-use std::cmp::{max, min};
+use std::cmp::max;
 
 use crate::data::compression::bytes_for_match;
 use crate::data::compression::match_length::match_length;
-use crate::data::compression::prefix_search::hash_table::PrefixTable;
+use crate::data::compression::prefix_search::hash_chain::HashChain;
 use crate::data::compression::prefix_search::prefix;
 use crate::data::control::{
     Command,
@@ -13,57 +13,6 @@ use crate::data::control::{
     LONG_OFFSET_MAX,
     SHORT_OFFSET_MIN,
 };
-
-struct HashChain {
-    prefix_table: PrefixTable,
-    hash_chain: Vec<u32>,
-}
-
-impl HashChain {
-    fn new(bytes: usize) -> Self {
-        Self {
-            prefix_table: PrefixTable::new(bytes),
-            hash_chain: vec![u32::MAX; min(bytes, LONG_OFFSET_MAX as usize)],
-        }
-    }
-
-    fn insert(&mut self, prefix: [u8; 3], position: u32) -> impl Iterator<Item = u32> + use<'_> {
-        let found_position = self
-            .prefix_table
-            .insert(prefix, position)
-            .filter(|pos| position - pos <= LONG_OFFSET_MAX);
-        self.hash_chain[(position % LONG_OFFSET_MAX) as usize] = found_position.unwrap_or(u32::MAX);
-        found_position.into_iter().chain(HashChainIter {
-            hash_chain: self,
-            orig_position: position,
-            cur_position: found_position,
-        })
-    }
-}
-
-struct HashChainIter<'a> {
-    hash_chain: &'a HashChain,
-    orig_position: u32,
-    cur_position: Option<u32>,
-}
-
-impl Iterator for HashChainIter<'_> {
-    type Item = u32;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let position = self.cur_position?;
-
-        let next_pos = self.hash_chain.hash_chain[(position % LONG_OFFSET_MAX) as usize];
-        self.cur_position =
-            if next_pos == u32::MAX || self.orig_position - next_pos > LONG_OFFSET_MAX {
-                None
-            } else {
-                Some(next_pos)
-            };
-
-        self.cur_position
-    }
-}
 
 /// Reads from an incoming `Read` reader and compresses and encodes to
 /// `Vec<Control>`

@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 7c737b29978d487f7fd4d9fde07d5cd0dcd0bb02ba1ac24a47e86b5bc4315704 # shrinks to input = _OptimalAlwaysSmallerArgs { input: [2, 2, 2, 2, 0] }

@@ -35,15 +35,18 @@
 //!
 //! See [Command] for a specification of control codes
 mod fast;
+mod fastest;
 pub(crate) mod match_length;
 mod optimal;
 pub(crate) mod prefix_search;
-mod fastest;
 
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::data::compression::fast::encode;
-use crate::data::compression::optimal::encode_slice_hc;
+use crate::data::compression::optimal::{encode_slice_hc, HASH_CHAINING_LEVELS};
+#[cfg(test)]
+use crate::data::compression::prefix_search::hash_chain::HashChainPrefixSearcher;
+use crate::data::compression::prefix_search::multi_level_hash_chain::MultiLevelPrefixSearcher;
 use crate::data::control::{
     LONG_LENGTH_MAX,
     LONG_LENGTH_MIN,
@@ -93,6 +96,8 @@ pub enum CompressionOptions {
     #[default]
     Fast,
     Optimal,
+    #[cfg(test)]
+    OptimalReference,
 }
 
 /// Compress a data stream from a Reader to refpack format into a Writer.
@@ -161,7 +166,11 @@ pub fn easy_compress<F: Format>(
     let controls = match compression_options {
         CompressionOptions::Fastest => fastest::encode(input),
         CompressionOptions::Fast => encode(input),
-        CompressionOptions::Optimal => encode_slice_hc(input),
+        CompressionOptions::Optimal => {
+            encode_slice_hc::<MultiLevelPrefixSearcher<{ HASH_CHAINING_LEVELS }>>(input)
+        }
+        #[cfg(test)]
+        CompressionOptions::OptimalReference => encode_slice_hc::<HashChainPrefixSearcher>(input),
     };
 
     let header_length = F::HeaderMode::length(length);
@@ -222,5 +231,25 @@ mod test {
         let result = easy_compress::<Reference>(&input, CompressionOptions::Fast);
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), RefPackError::EmptyInput));
+    }
+
+    #[proptest]
+    fn optimal_matches_reference(
+        #[strategy(proptest::collection::vec(0..=3u8, 1..=1_000_000))] input: Vec<u8>,
+    ) {
+        println!("in: {}", input.len());
+        let compressed_reference =
+            easy_compress::<Reference>(&input, CompressionOptions::OptimalReference)?;
+        let compressed_optimal = easy_compress::<Reference>(&input, CompressionOptions::Optimal)?;
+        println!(
+            "out ref: {} opt: {}",
+            compressed_reference.len(),
+            compressed_optimal.len()
+        );
+        prop_assert_eq!(
+            &compressed_reference,
+            &compressed_optimal,
+            "Optimal compression should match the reference implementation."
+        );
     }
 }
