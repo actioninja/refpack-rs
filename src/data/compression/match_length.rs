@@ -97,7 +97,7 @@ pub fn match_length(
     skip: usize,
 ) -> usize {
     debug_assert!(matched_pos < source);
-    
+
     match_length_simd(buffer, source + skip, matched_pos + skip, max_len - skip) + skip
 }
 

@@ -22,9 +22,10 @@ impl PrefixTable {
     pub(crate) fn insert(&mut self, prefix: [u8; 3], position: u32) -> Option<u32> {
         match *self {
             PrefixTable::Small(ref mut table) => {
-                let prefix = ((prefix[0] as u32) << 16) | ((prefix[1] as u32) << 8) | (prefix[2] as u32);
+                let prefix =
+                    ((prefix[0] as u32) << 16) | ((prefix[1] as u32) << 8) | (prefix[2] as u32);
                 table.insert(prefix, position)
-            },
+            }
             PrefixTable::Large(ref mut table) => table.insert(prefix, position),
         }
     }

@@ -1,4 +1,5 @@
 use std::cmp::max;
+
 use crate::data::compression::bytes_for_match;
 use crate::data::compression::match_length::match_length;
 use crate::data::compression::prefix_search::hash_table::PrefixTable;
@@ -64,12 +65,12 @@ pub(crate) fn encode(input: &[u8]) -> Vec<Control> {
             }
             literal_block.clear();
 
-            /*for k in (i..).take(match_length).skip(1) {
-                if k >= end {
-                    break;
-                }
-                prefix_table.insert(prefix(&input[k..]), k as u32);
-            }*/
+            // for k in (i..).take(match_length).skip(1) {
+            // if k >= end {
+            // break;
+            // }
+            // prefix_table.insert(prefix(&input[k..]), k as u32);
+            // }
 
             i += match_length;
         } else {
