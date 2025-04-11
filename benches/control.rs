@@ -13,7 +13,7 @@ const CONST_BENCH_LENGTH: usize = 8096;
 fn repeating_short_control_vec(repeats: usize) -> Vec<Control> {
     let mut ret = vec![Control::new_literal_block(&[0; 4])];
     ret.append(&mut vec![
-        Control::new(Command::new(1, 1, 0), vec![]);
+        Control::new(Command::new(1, 3, 0), vec![]);
         repeats
     ]);
     ret.push(Control::new_stop(&[]));
