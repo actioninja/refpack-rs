@@ -33,14 +33,12 @@ impl Default for Match {
 #[derive(Copy, Clone, Debug)]
 struct HashChainLink<const N: usize> {
     prev: [Match; N],
-    short_skip_pos: u32,
 }
 
 impl<const N: usize> Default for HashChainLink<N> {
     fn default() -> Self {
         Self {
             prev: [Match::default(); N],
-            short_skip_pos: u32::MAX,
         }
     }
 }
@@ -78,7 +76,7 @@ impl<const N: usize> MultiLevelHashChain<N> {
 
 pub(crate) struct MultiLevelPrefixSearcher<'a, const N: usize> {
     buffer: &'a [u8],
-    head: HashMap<[u8; 3], (usize, u16, u32)>,
+    head: HashMap<[u8; 3], u32>,
     prev: MultiLevelHashChain<N>,
 }
 
@@ -149,7 +147,7 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
                 return None;
             }
 
-            let p = &prev.at(from);
+            let p = prev.at(from);
 
             loop {
                 let pl = p.prev[level];
@@ -160,11 +158,7 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
                     }
                     level -= 1;
                 } else if prev_matched_len < pl.length {
-                    if level == 0 {
-                        // from = pl.position as usize;
-                        from = p.short_skip_pos as usize;
-                        continue 'outer;
-                    } else if prev_matched_len > p.prev[level - 1].skip_length {
+                    if level == 0 || prev_matched_len > p.prev[level - 1].skip_length {
                         from = pl.position as usize;
                         continue 'outer;
                     }
@@ -222,76 +216,62 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
     fn build(buffer: &'a [u8]) -> Self {
         let mut head = HashMap::with_capacity(256);
 
-        head.insert(prefix_search::prefix(buffer), (0, 0, u32::MAX));
+        head.insert(prefix_search::prefix(buffer), 0);
 
         let prev = MultiLevelHashChain::new(buffer.len());
 
         Self { buffer, head, prev }
     }
 
-    fn search<F: FnMut(usize, usize, usize)>(&mut self, pos: usize, mut found_fn: F) {
-        let i = pos;
+    fn search<F: FnMut(usize, usize, usize)>(&mut self, search_position: usize, mut found_fn: F) {
 
-        let p = prefix_search::prefix(&self.buffer[i..]);
+        let p = prefix_search::prefix(&self.buffer[search_position..]);
 
-        let prev_pos = self.head.get(&p).copied();
-        let mut short_skip_pos = u32::MAX;
-        let new = prev_pos
-            .filter(|(prev_pos, ..)| pos - prev_pos <= LONG_OFFSET_MAX as usize)
-            .map(|(prev_pos, prev_len, prev_short_skip)| {
+        *self.prev.at_mut(search_position) = HashChainLink::default();
+
+        let prev_pos = self.head.insert(p, search_position as u32);
+        if let Some(prev_pos) = prev_pos {
+            if search_position as u32 - prev_pos <= LONG_OFFSET_MAX {
                 let match_length =
-                    match_length(self.buffer, i, prev_pos, LONG_LENGTH_MAX as usize, 3) as u16;
+                    match_length(self.buffer, search_position, prev_pos as usize, LONG_LENGTH_MAX as usize, 3) as u16;
 
-                short_skip_pos = if match_length >= prev_len {
-                    prev_pos as u32
-                } else {
-                    prev_short_skip
-                };
-
-                Match {
-                    position: prev_pos as u32,
+                self.prev.at_mut(search_position).prev[0] = Match {
+                    position: prev_pos,
                     bad_position: u32::MAX,
                     length: match_length,
                     skip_length: 0,
                 }
-            })
-            .unwrap_or_default();
+            }
+        }
 
-        self.head.insert(p, (i, new.length, short_skip_pos));
-
-        self.prev.at_mut(i).prev = [Match::default(); N];
-        self.prev.at_mut(i).short_skip_pos = short_skip_pos;
-        self.prev.at_mut(i).prev[0] = new;
-
-
-        if self.prev.at(i).prev[0].length > 0 {
+        if self.prev.at(search_position).prev[0].length > 0 {
             for origin in 0..N {
                 let next = origin + 1;
 
-                let po = self.prev.at(i).prev[origin];
+                let po = self.prev.at(search_position).prev[origin];
 
                 let (spos, slen) = Self::search_break(
                     self.buffer,
                     &self.prev,
-                    i,
+                    search_position,
                     po.position as usize,
                     po.length,
                     |_, _| {},
                 );
-                self.prev.at_mut(i).prev[origin].skip_length = slen as u16;
+                self.prev.at_mut(search_position).prev[origin].skip_length = slen as u16;
 
                 if slen < min(LONG_LENGTH_MAX as usize, self.buffer.len() - spos - 1) {
                     if next < N {
                         if let Some((fpos, flen)) = Self::search_from_offset(
                             &self.prev,
-                            i,
+                            search_position,
                             po.length as usize,
                             po.position as usize,
                             po.length,
                             |pos, skip| {
                                 match_length_or(
                                     self.buffer,
-                                    i,
+                                    search_position,
                                     pos as usize,
                                     po.position as usize,
                                     po.length as usize,
@@ -299,17 +279,17 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                                 )
                             },
                         ) {
-                            if byte_offset_matches(self.buffer, i, fpos, po.length as usize) {
+                            if byte_offset_matches(self.buffer, search_position, fpos, po.length as usize) {
                                 if let Some((bpos, _blen)) = Self::search_from_offset(
                                     &self.prev,
-                                    i,
+                                    search_position,
                                     po.length as usize,
                                     fpos,
                                     po.length,
                                     |pos, skip| {
                                         match_length_except(
                                             self.buffer,
-                                            i,
+                                            search_position,
                                             po.position as usize,
                                             pos as usize,
                                             po.length as usize,
@@ -317,37 +297,37 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                                         )
                                     },
                                 ) {
-                                    self.prev.at_mut(i).prev[origin].bad_position = bpos as u32;
+                                    self.prev.at_mut(search_position).prev[origin].bad_position = bpos as u32;
                                 }
                                 if flen > slen {
                                     // found the next good position, search for the bad position
-                                    self.prev.at_mut(i).prev[next].position = fpos as u32;
-                                    self.prev.at_mut(i).prev[next].length = flen as u16;
+                                    self.prev.at_mut(search_position).prev[next].position = fpos as u32;
+                                    self.prev.at_mut(search_position).prev[next].length = flen as u16;
                                     continue;
                                 }
                             } else {
-                                self.prev.at_mut(i).prev[origin].bad_position = fpos as u32;
+                                self.prev.at_mut(search_position).prev[origin].bad_position = fpos as u32;
                             }
 
                             // found the bad position, search for the good position
                             if let Some((pos, len)) = Self::search_from_offset(
                                 &self.prev,
-                                i,
+                                search_position,
                                 slen,
                                 min(fpos, spos),
                                 slen as u16,
                                 |pos, skip| {
                                     match_length(
                                         self.buffer,
-                                        i,
+                                        search_position,
                                         pos as usize,
                                         LONG_LENGTH_MAX as usize,
                                         skip as usize,
                                     ) as u16
                                 },
                             ) {
-                                self.prev.at_mut(i).prev[next].position = pos as u32;
-                                self.prev.at_mut(i).prev[next].length = len as u16;
+                                self.prev.at_mut(search_position).prev[next].position = pos as u32;
+                                self.prev.at_mut(search_position).prev[next].length = len as u16;
                             } else {
                                 break;
                             }
@@ -356,14 +336,14 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                         }
                     } else if let Some((bpos, _blen)) = Self::search_from_offset(
                         &self.prev,
-                        i,
+                        search_position,
                         po.length as usize,
                         po.position as usize,
                         po.length,
                         |pos, skip| {
                             match_length_except(
                                 self.buffer,
-                                i,
+                                search_position,
                                 po.position as usize,
                                 pos as usize,
                                 po.length as usize,
@@ -371,7 +351,7 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                             )
                         },
                     ) {
-                        self.prev.at_mut(i).prev[origin].bad_position = bpos as u32;
+                        self.prev.at_mut(search_position).prev[origin].bad_position = bpos as u32;
                     }
                 } else {
                     break;
@@ -379,7 +359,7 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
             }
         }
 
-        let start_match = self.prev.at(pos);
+        let start_match = self.prev.at(search_position);
 
         // matches have to be 3 bytes minimum, so skip match lengths 0 to 2
         let mut max_matched = 2;
@@ -403,7 +383,7 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
             Self::search_break(
                 self.buffer,
                 &self.prev,
-                pos,
+                search_position,
                 match_pos,
                 match_len as u16,
                 |pos, len| {
@@ -432,14 +412,14 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
 
                 cur_match = Self::search_from_offset(
                     &self.prev,
-                    pos,
+                    search_position,
                     max_matched,
                     from,
                     max_matched as u16,
                     |test_pos, skip| {
                         match_length(
                             self.buffer,
-                            pos,
+                            search_position,
                             test_pos as usize,
                             LONG_LENGTH_MAX as usize,
                             skip as usize,
