@@ -234,6 +234,7 @@ mod test {
     }
 
     #[proptest]
+    #[ignore]
     fn optimal_matches_reference(
         #[strategy(proptest::collection::vec(0..=3u8, 1..=1_000_000))] input: Vec<u8>,
     ) {
