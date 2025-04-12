@@ -1,6 +1,5 @@
 use std::cmp::min;
 use std::collections::HashMap;
-
 use crate::data::compression::match_length::{
     byte_offset_matches,
     match_length,
@@ -9,6 +8,7 @@ use crate::data::compression::match_length::{
 };
 use crate::data::compression::prefix_search;
 use crate::data::compression::prefix_search::{PrefixSearcher, HASH_CHAIN_MODULO};
+use crate::data::compression::prefix_search::hash_table::PrefixTable;
 use crate::data::control::{LONG_LENGTH_MAX, LONG_OFFSET_MAX};
 
 #[derive(Copy, Clone, Debug)]
@@ -76,7 +76,7 @@ impl<const N: usize> MultiLevelHashChain<N> {
 
 pub(crate) struct MultiLevelPrefixSearcher<'a, const N: usize> {
     buffer: &'a [u8],
-    head: HashMap<[u8; 3], u32>,
+    head: PrefixTable,
     prev: MultiLevelHashChain<N>,
 }
 
@@ -214,7 +214,7 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
 
 impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> {
     fn build(buffer: &'a [u8]) -> Self {
-        let mut head = HashMap::with_capacity(256);
+        let mut head = PrefixTable::new(buffer.len());
 
         head.insert(prefix_search::prefix(buffer), 0);
 
