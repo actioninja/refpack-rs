@@ -247,7 +247,7 @@ pub(crate) fn encode_slice_hc<'a, PS: PrefixSearcher<'a>>(input: &'a [u8]) -> Ve
             command_state[pos as usize + 1] = CommandState::literal(new_state_literal).0;
         }
     }
-    
+
     drop(cost_state);
 
     controls_from_state_slice(&command_state, input)
