@@ -1,5 +1,5 @@
 use std::cmp::min;
-use std::collections::HashMap;
+
 use crate::data::compression::match_length::{
     byte_offset_matches,
     match_length,
@@ -7,8 +7,8 @@ use crate::data::compression::match_length::{
     match_length_or,
 };
 use crate::data::compression::prefix_search;
-use crate::data::compression::prefix_search::{PrefixSearcher, HASH_CHAIN_MODULO};
 use crate::data::compression::prefix_search::hash_table::PrefixTable;
+use crate::data::compression::prefix_search::{PrefixSearcher, HASH_CHAIN_MODULO};
 use crate::data::control::{LONG_LENGTH_MAX, LONG_OFFSET_MAX};
 
 #[derive(Copy, Clone, Debug)]
@@ -111,7 +111,9 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
                         prev_matched_len as usize,
                     );
                     if match_len > prev_matched_len as usize {
-                        found_fn(match_pos as usize, match_len);
+                        if from != prev_from {
+                            found_fn(from, prev_matched_len as usize);
+                        }
 
                         prev_from = from;
                         prev_prev_match_len = prev_matched_len;
@@ -224,208 +226,197 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
     }
 
     fn search<F: FnMut(usize, usize, usize)>(&mut self, search_position: usize, mut found_fn: F) {
-
         let p = prefix_search::prefix(&self.buffer[search_position..]);
 
         *self.prev.at_mut(search_position) = HashChainLink::default();
 
+        // matches have to be 3 bytes minimum, so skip match lengths 0 to 2
+
         let prev_pos = self.head.insert(p, search_position as u32);
         if let Some(prev_pos) = prev_pos {
             if search_position as u32 - prev_pos <= LONG_OFFSET_MAX {
-                let match_length =
-                    match_length(self.buffer, search_position, prev_pos as usize, LONG_LENGTH_MAX as usize, 3) as u16;
+                let match_length = match_length(
+                    self.buffer,
+                    search_position,
+                    prev_pos as usize,
+                    LONG_LENGTH_MAX as usize,
+                    3,
+                ) as u16;
 
                 self.prev.at_mut(search_position).prev[0] = Match {
                     position: prev_pos,
                     bad_position: u32::MAX,
                     length: match_length,
                     skip_length: 0,
-                }
-            }
-        }
+                };
 
-        if self.prev.at(search_position).prev[0].length > 0 {
-            for origin in 0..N {
-                let next = origin + 1;
+                let mut max_matched = 2;
 
-                let po = self.prev.at(search_position).prev[origin];
+                for origin in 0..N {
+                    let next = origin + 1;
 
-                let (spos, slen) = Self::search_break(
-                    self.buffer,
-                    &self.prev,
-                    search_position,
-                    po.position as usize,
-                    po.length,
-                    |_, _| {},
-                );
-                self.prev.at_mut(search_position).prev[origin].skip_length = slen as u16;
+                    let po = self.prev.at(search_position).prev[origin];
 
-                if slen < min(LONG_LENGTH_MAX as usize, self.buffer.len() - spos - 1) {
-                    if next < N {
-                        if let Some((fpos, flen)) = Self::search_from_offset(
-                            &self.prev,
-                            search_position,
-                            po.length as usize,
-                            po.position as usize,
-                            po.length,
-                            |pos, skip| {
-                                match_length_or(
-                                    self.buffer,
-                                    search_position,
-                                    pos as usize,
-                                    po.position as usize,
-                                    po.length as usize,
-                                    skip as usize,
-                                )
-                            },
-                        ) {
-                            if byte_offset_matches(self.buffer, search_position, fpos, po.length as usize) {
-                                if let Some((bpos, _blen)) = Self::search_from_offset(
-                                    &self.prev,
-                                    search_position,
-                                    po.length as usize,
-                                    fpos,
-                                    po.length,
-                                    |pos, skip| {
-                                        match_length_except(
-                                            self.buffer,
-                                            search_position,
-                                            po.position as usize,
-                                            pos as usize,
-                                            po.length as usize,
-                                            skip as usize,
-                                        )
-                                    },
-                                ) {
-                                    self.prev.at_mut(search_position).prev[origin].bad_position = bpos as u32;
-                                }
-                                if flen > slen {
-                                    // found the next good position, search for the bad position
-                                    self.prev.at_mut(search_position).prev[next].position = fpos as u32;
-                                    self.prev.at_mut(search_position).prev[next].length = flen as u16;
-                                    continue;
-                                }
-                            } else {
-                                self.prev.at_mut(search_position).prev[origin].bad_position = fpos as u32;
-                            }
+                    found_fn(
+                        po.position as usize,
+                        max_matched + 1,
+                        po.length as usize + 1,
+                    );
+                    max_matched = po.length as usize;
+                    // latest_pos = po.position as usize;
 
-                            // found the bad position, search for the good position
-                            if let Some((pos, len)) = Self::search_from_offset(
+                    let (spos, slen) = Self::search_break(
+                        self.buffer,
+                        &self.prev,
+                        search_position,
+                        po.position as usize,
+                        po.length,
+                        |position, length| {
+                            found_fn(position, max_matched + 1, length + 1);
+                            max_matched = length;
+                        },
+                    );
+                    self.prev.at_mut(search_position).prev[origin].skip_length = slen as u16;
+
+                    if slen < min(LONG_LENGTH_MAX as usize, self.buffer.len() - spos - 1) {
+                        if next < N {
+                            if let Some((fpos, flen)) = Self::search_from_offset(
                                 &self.prev,
                                 search_position,
-                                slen,
-                                min(fpos, spos),
-                                slen as u16,
+                                po.length as usize,
+                                po.position as usize,
+                                po.length,
                                 |pos, skip| {
-                                    match_length(
+                                    match_length_or(
                                         self.buffer,
                                         search_position,
                                         pos as usize,
+                                        po.position as usize,
+                                        po.length as usize,
+                                        skip as usize,
+                                    )
+                                },
+                            ) {
+                                if byte_offset_matches(
+                                    self.buffer,
+                                    search_position,
+                                    fpos,
+                                    po.length as usize,
+                                ) {
+                                    if let Some((bpos, _blen)) = Self::search_from_offset(
+                                        &self.prev,
+                                        search_position,
+                                        po.length as usize,
+                                        fpos,
+                                        po.length,
+                                        |pos, skip| {
+                                            match_length_except(
+                                                self.buffer,
+                                                search_position,
+                                                po.position as usize,
+                                                pos as usize,
+                                                po.length as usize,
+                                                skip as usize,
+                                            )
+                                        },
+                                    ) {
+                                        self.prev.at_mut(search_position).prev[origin]
+                                            .bad_position = bpos as u32;
+                                    }
+                                    if flen > slen {
+                                        // found the next good position, search for the bad position
+                                        self.prev.at_mut(search_position).prev[next].position =
+                                            fpos as u32;
+                                        self.prev.at_mut(search_position).prev[next].length =
+                                            flen as u16;
+                                        continue;
+                                    }
+                                } else {
+                                    self.prev.at_mut(search_position).prev[origin].bad_position =
+                                        fpos as u32;
+                                }
+
+                                // found the bad position, search for the good position
+                                if let Some((pos, len)) = Self::search_from_offset(
+                                    &self.prev,
+                                    search_position,
+                                    slen,
+                                    min(fpos, spos),
+                                    slen as u16,
+                                    |pos, skip| {
+                                        crate::data::compression::match_length::match_length(
+                                            self.buffer,
+                                            search_position,
+                                            pos as usize,
+                                            LONG_LENGTH_MAX as usize,
+                                            skip as usize,
+                                        ) as u16
+                                    },
+                                ) {
+                                    self.prev.at_mut(search_position).prev[next].position =
+                                        pos as u32;
+                                    self.prev.at_mut(search_position).prev[next].length =
+                                        len as u16;
+                                } else {
+                                    break;
+                                }
+                            } else {
+                                break;
+                            }
+                        } else {
+                            if let Some((bpos, _blen)) = Self::search_from_offset(
+                                &self.prev,
+                                search_position,
+                                po.length as usize,
+                                po.position as usize,
+                                po.length,
+                                |pos, skip| {
+                                    match_length_except(
+                                        self.buffer,
+                                        search_position,
+                                        po.position as usize,
+                                        pos as usize,
+                                        po.length as usize,
+                                        skip as usize,
+                                    )
+                                },
+                            ) {
+                                self.prev.at_mut(search_position).prev[origin].bad_position =
+                                    bpos as u32;
+                            }
+
+                            // last loop, find the rest of the matches for the search function
+                            let mut cur_pos = spos;
+
+                            while let Some((match_pos, len)) = Self::search_from_offset(
+                                &self.prev,
+                                search_position,
+                                max_matched,
+                                cur_pos,
+                                max_matched as u16,
+                                |test_pos, skip| {
+                                    crate::data::compression::match_length::match_length(
+                                        self.buffer,
+                                        search_position,
+                                        test_pos as usize,
                                         LONG_LENGTH_MAX as usize,
                                         skip as usize,
                                     ) as u16
                                 },
                             ) {
-                                self.prev.at_mut(search_position).prev[next].position = pos as u32;
-                                self.prev.at_mut(search_position).prev[next].length = len as u16;
-                            } else {
-                                break;
+                                found_fn(match_pos, max_matched + 1, len + 1);
+                                max_matched = len;
+                                cur_pos = match_pos;
+
+                                if len == LONG_LENGTH_MAX as usize {
+                                    return;
+                                }
                             }
-                        } else {
-                            break;
                         }
-                    } else if let Some((bpos, _blen)) = Self::search_from_offset(
-                        &self.prev,
-                        search_position,
-                        po.length as usize,
-                        po.position as usize,
-                        po.length,
-                        |pos, skip| {
-                            match_length_except(
-                                self.buffer,
-                                search_position,
-                                po.position as usize,
-                                pos as usize,
-                                po.length as usize,
-                                skip as usize,
-                            )
-                        },
-                    ) {
-                        self.prev.at_mut(search_position).prev[origin].bad_position = bpos as u32;
+                    } else {
+                        break;
                     }
-                } else {
-                    break;
                 }
-            }
-        }
-
-        let start_match = self.prev.at(search_position);
-
-        // matches have to be 3 bytes minimum, so skip match lengths 0 to 2
-        let mut max_matched = 2;
-
-        for cur_match in &start_match.prev[..N - 1] {
-            let match_pos = cur_match.position as usize;
-            let match_len = cur_match.length as usize;
-
-            if match_len == 0 {
-                return;
-            }
-
-            found_fn(match_pos, max_matched + 1, match_len + 1);
-
-            if match_len == LONG_LENGTH_MAX as usize {
-                return;
-            }
-
-            max_matched = match_len;
-
-            Self::search_break(
-                self.buffer,
-                &self.prev,
-                search_position,
-                match_pos,
-                match_len as u16,
-                |pos, len| {
-                    if len <= cur_match.skip_length as usize {
-                        found_fn(pos, max_matched + 1, len + 1);
-                        max_matched = len;
-                    }
-                },
-            );
-        }
-
-        if start_match.prev[N - 1].length > 0 {
-            let mut cur_match = Some((
-                start_match.prev[N - 1].position as usize,
-                start_match.prev[N - 1].length as usize,
-            ));
-
-            while let Some((match_pos, len)) = cur_match {
-                found_fn(match_pos, max_matched + 1, len + 1);
-                max_matched = len;
-                let from = match_pos;
-
-                if len == LONG_LENGTH_MAX as usize {
-                    return;
-                }
-
-                cur_match = Self::search_from_offset(
-                    &self.prev,
-                    search_position,
-                    max_matched,
-                    from,
-                    max_matched as u16,
-                    |test_pos, skip| {
-                        match_length(
-                            self.buffer,
-                            search_position,
-                            test_pos as usize,
-                            LONG_LENGTH_MAX as usize,
-                            skip as usize,
-                        ) as u16
-                    },
-                );
             }
         }
     }

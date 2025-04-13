@@ -194,6 +194,8 @@ pub(crate) fn encode_slice_hc<'a, PS: PrefixSearcher<'a>>(input: &'a [u8]) -> Ve
             prev.search(
                 match_start_pos as usize,
                 |match_pos, match_start, match_end| {
+                    debug_assert!(match_start < match_end);
+
                     let offset = match_start_pos as usize - match_pos;
 
                     let mut i = match_start;
