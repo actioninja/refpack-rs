@@ -88,14 +88,40 @@ fn bytes_for_match(length: usize, offset: usize) -> Option<(Option<usize>, usize
     }
 }
 
+/// Indicates preferences towards compressed size vs compression speed
+///
+/// refpack-rs has several algorithms for compression that have different use cases,
+/// you may want to use an algorithm that is fast to run but gives suboptimal results,
+/// or you could use an algorithm that is very slow to run but gives optimal results.
+///
+/// The default is the [Fast](CompressionOptions::Fast) algorithm.
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
 #[non_exhaustive]
 #[cfg_attr(test, derive(test_strategy::Arbitrary))]
 pub enum CompressionOptions {
+    /// Fastest algorithm intended for real-time use cases
+    ///
+    /// Expect speeds of 50-100MB/s, with compression ratios
+    /// that are around 10-20% worse than the [Optimal](CompressionOptions::Optimal) algorithm.
     Fastest,
     #[default]
+    /// Fast algorithm intended for data that is read a small amount of times
+    ///
+    /// Expect speeds of 5-10MB/s, with compression ratios
+    /// that are around 5-10% worse than the [Optimal](CompressionOptions::Optimal) algorithm.
     Fast,
+    /// Optimal algorithm intended for data that is read a large amount of times
+    ///
+    /// Expect speeds of 1-2MB/s
+    ///
+    /// This algorithm results in compression that is mathematically guaranteed to
+    /// produce the smallest possible output for refpack compression.
     Optimal,
+    /// DO NOT USE IN PRODUCTION
+    ///
+    /// Produces exactly the same output as [Optimal](CompressionOptions::Optimal),
+    /// but uses a reference implementation for the internal prefix searcher.
+    /// See [test::optimal_matches_reference] for details.
     #[cfg(test)]
     OptimalReference,
 }
