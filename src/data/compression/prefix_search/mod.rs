@@ -15,5 +15,4 @@ pub trait PrefixSearcher<'a> {
 // optimization: we only have to reserve LONG_OFFSET_MAX + 1 bytes
 // but since it costs less instructions to do modulo by a power of two
 // we'll use the next largest power of two
-// const HASH_CHAIN_MODULO: usize = (LONG_OFFSET_MAX + 1) as usize;
-const HASH_CHAIN_MODULO: usize = 1 << 18;
+const HASH_CHAIN_BUFFER_SIZE: usize = 1 << 18;

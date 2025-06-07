@@ -8,7 +8,7 @@ use crate::data::compression::match_length::{
 };
 use crate::data::compression::prefix_search;
 use crate::data::compression::prefix_search::hash_table::PrefixTable;
-use crate::data::compression::prefix_search::{PrefixSearcher, HASH_CHAIN_MODULO};
+use crate::data::compression::prefix_search::{PrefixSearcher, HASH_CHAIN_BUFFER_SIZE};
 use crate::data::control::{LONG_LENGTH_MAX, LONG_OFFSET_MAX};
 
 #[derive(Copy, Clone, Debug)]
@@ -52,7 +52,7 @@ struct MultiLevelHashChain<const N: usize> {
 impl<const N: usize> MultiLevelHashChain<N> {
     fn new(bytes: usize) -> Self {
         Self {
-            data: vec![HashChainLink::default(); min(bytes, HASH_CHAIN_MODULO)],
+            data: vec![HashChainLink::default(); min(bytes, HASH_CHAIN_BUFFER_SIZE)],
             #[cfg(debug_assertions)]
             last_index: 0,
         }
@@ -61,7 +61,7 @@ impl<const N: usize> MultiLevelHashChain<N> {
     fn at(&self, i: usize) -> &HashChainLink<N> {
         #[cfg(debug_assertions)]
         debug_assert!(self.last_index - i <= LONG_OFFSET_MAX as usize);
-        &self.data[i % HASH_CHAIN_MODULO]
+        &self.data[i % HASH_CHAIN_BUFFER_SIZE]
     }
 
     fn at_mut(&mut self, i: usize) -> &mut HashChainLink<N> {
@@ -70,7 +70,7 @@ impl<const N: usize> MultiLevelHashChain<N> {
             self.last_index = std::cmp::max(self.last_index, i);
             debug_assert!(self.last_index - i <= LONG_OFFSET_MAX as usize);
         }
-        &mut self.data[i % HASH_CHAIN_MODULO]
+        &mut self.data[i % HASH_CHAIN_BUFFER_SIZE]
     }
 }
 

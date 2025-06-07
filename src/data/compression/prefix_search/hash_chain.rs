@@ -2,7 +2,7 @@ use std::cmp::min;
 
 use crate::data::compression::match_length::match_length;
 use crate::data::compression::prefix_search::hash_table::PrefixTable;
-use crate::data::compression::prefix_search::{prefix, PrefixSearcher, HASH_CHAIN_MODULO};
+use crate::data::compression::prefix_search::{prefix, PrefixSearcher, HASH_CHAIN_BUFFER_SIZE};
 use crate::data::control::{LONG_LENGTH_MAX, LONG_OFFSET_MAX};
 
 pub(crate) struct HashChain {
@@ -14,7 +14,7 @@ impl HashChain {
     pub fn new(bytes: usize) -> Self {
         Self {
             prefix_table: PrefixTable::new(bytes),
-            hash_chain: vec![u32::MAX; min(bytes, HASH_CHAIN_MODULO)],
+            hash_chain: vec![u32::MAX; min(bytes, HASH_CHAIN_BUFFER_SIZE)],
         }
     }
 
@@ -27,7 +27,7 @@ impl HashChain {
             .prefix_table
             .insert(prefix, position)
             .filter(|pos| position - pos <= LONG_OFFSET_MAX);
-        self.hash_chain[position as usize % HASH_CHAIN_MODULO] = found_position.unwrap_or(u32::MAX);
+        self.hash_chain[position as usize % HASH_CHAIN_BUFFER_SIZE] = found_position.unwrap_or(u32::MAX);
         found_position.into_iter().chain(HashChainIter {
             hash_chain: self,
             orig_position: position,
@@ -48,7 +48,7 @@ impl Iterator for HashChainIter<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         let position = self.cur_position?;
 
-        let next_pos = self.hash_chain.hash_chain[position as usize % HASH_CHAIN_MODULO];
+        let next_pos = self.hash_chain.hash_chain[position as usize % HASH_CHAIN_BUFFER_SIZE];
         self.cur_position =
             if next_pos == u32::MAX || self.orig_position - next_pos > LONG_OFFSET_MAX {
                 None
