@@ -72,12 +72,8 @@ pub(crate) fn encode(input: &[u8]) -> Vec<Control> {
             }
             literal_block.clear();
 
-            // for k in (i..).take(match_length).skip(1) {
-            // if k >= end {
-            // break;
-            // }
-            // prefix_table.insert(prefix(&input[k..]), k as u32);
-            // }
+            // here we would normally insert all intermediate prefixes into the prefix table
+            // but for the sake of performance we skip this step
 
             i += match_length;
         } else {
