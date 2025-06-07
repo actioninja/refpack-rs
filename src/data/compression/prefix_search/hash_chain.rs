@@ -27,7 +27,8 @@ impl HashChain {
             .prefix_table
             .insert(prefix, position)
             .filter(|pos| position - pos <= LONG_OFFSET_MAX);
-        self.hash_chain[position as usize % HASH_CHAIN_BUFFER_SIZE] = found_position.unwrap_or(u32::MAX);
+        self.hash_chain[position as usize % HASH_CHAIN_BUFFER_SIZE] =
+            found_position.unwrap_or(u32::MAX);
         found_position.into_iter().chain(HashChainIter {
             hash_chain: self,
             orig_position: position,
