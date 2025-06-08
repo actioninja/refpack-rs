@@ -7,10 +7,15 @@
 
 use std::cmp::min;
 
+#[cfg(test)]
 use crate::data::compression::match_length::match_length;
 use crate::data::compression::prefix_search::hash_table::PrefixTable;
-use crate::data::compression::prefix_search::{prefix, PrefixSearcher, HASH_CHAIN_BUFFER_SIZE};
-use crate::data::control::{LONG_LENGTH_MAX, LONG_OFFSET_MAX};
+use crate::data::compression::prefix_search::HASH_CHAIN_BUFFER_SIZE;
+#[cfg(test)]
+use crate::data::compression::prefix_search::{prefix, PrefixSearcher};
+#[cfg(test)]
+use crate::data::control::LONG_LENGTH_MAX;
+use crate::data::control::LONG_OFFSET_MAX;
 
 pub(crate) struct HashChain {
     prefix_table: PrefixTable,
@@ -68,11 +73,13 @@ impl Iterator for HashChainIter<'_> {
     }
 }
 
+#[cfg(test)]
 pub(crate) struct HashChainPrefixSearcher<'a> {
     buffer: &'a [u8],
     hash_chain: HashChain,
 }
 
+#[cfg(test)]
 impl<'a> PrefixSearcher<'a> for HashChainPrefixSearcher<'a> {
     fn build(buffer: &'a [u8]) -> Self {
         let mut hash_chain = HashChain::new(buffer.len());
