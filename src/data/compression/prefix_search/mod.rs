@@ -9,12 +9,12 @@ pub(crate) mod hash_chain;
 pub(crate) mod hash_table;
 pub(crate) mod multi_level_hash_chain;
 
-pub fn prefix(input_buf: &[u8]) -> [u8; 3] {
+pub(crate) fn prefix(input_buf: &[u8]) -> [u8; 3] {
     let buf: &[u8] = &input_buf[..3];
     [buf[0], buf[1], buf[2]]
 }
 
-pub trait PrefixSearcher<'a> {
+pub(crate) trait PrefixSearcher<'a> {
     fn build(buffer: &'a [u8]) -> Self;
     fn search<F: FnMut(usize, usize, usize)>(&mut self, pos: usize, found_fn: F);
 }
