@@ -171,6 +171,27 @@ fn update_state_simd(
     }
 }
 
+/// Search for the set of controls that can encode the input slice in the lowest amount of output bytes possible.
+///
+/// To understand this algorithm, first consider the case of using a hash chain prefix searcher
+/// as it is equivalent to the case of using a multilevel hash chain.
+///
+/// This algorithm is in essence a variation of dijkstra's algorithm; for every node (byte position) that is opened
+/// it is always known what the most cost-effective way to reach that point is.
+///
+/// For example, consider the case of an input consisting of all zeros:
+/// it is known that to encode the first byte of the input the only option is a literal command of length 1.
+/// Thus, the cost for encoding the first byte must be 2 (literal command + 1 literal).
+/// Because copy commands can also include four literals the literal command cost
+/// is not encoded until after four literals.
+/// After the first byte has been encoded multiple other bytes can be reached via a copy command;
+/// the short copy command can copy 3-10 bytes with a minimum offset of 1 and a cost of 2 bytes,
+/// thus we know that positions 3-10 can be reached with a maximum cost of 3 (1 byte literal + 2 bytes short command),
+/// and positions 1 and 2 can also be reached with a cost of 3 and 4 respectively (with 2 and 3 literal bytes).
+///
+/// Once all positions have been opened it is known that the last cost state is the minimum cost
+/// for encoding all bytes in the input. It is then possible to encode all commands by tracing backwards 
+/// through the input while referencing the command state that is built in the search process.
 pub(crate) fn encode_slice_hc<'a, PS: PrefixSearcher<'a>>(input: &'a [u8]) -> Vec<Control> {
     let input_length = input.len();
 
