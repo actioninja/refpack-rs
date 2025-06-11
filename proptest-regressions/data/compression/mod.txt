@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 7c737b29978d487f7fd4d9fde07d5cd0dcd0bb02ba1ac24a47e86b5bc4315704 # shrinks to input = _OptimalAlwaysSmallerArgs { input: [2, 2, 2, 2, 0] }
+cc 8c2e346cc773c1a92a588fc4e3874380d3a73a72cf8de1793db5f764178ad51f # shrinks to input = _ReaderCompressionArgs { input: [0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0, 5, 0, 0, 0, 6, 0, 0, 0, 7, 0, 0, 0, 8, 0, 0, 0, 9, 0, 0, 1, 1, 0, 1, 0, 2, 1, 0, 0, 10, 0, 0, 0, 11, 0, 0, 0, 12, 0, 0, 0, 13, 0, 0, 0, 14, 0, 0, 0, 15, 0, 0, 0, 16, 0, 0, 0, 17, 0, 0, 0], options: Optimal }

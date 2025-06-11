@@ -66,10 +66,14 @@ impl CommandState {
 
 fn controls_from_state_slice(state: &[u32], input: &[u8]) -> Vec<Control> {
     let mut cur_pos = state.len() - 1;
+    // add the output controls in reverse order in this list
     let mut controls = vec![];
-
+    
+    // special handling of the last literals: the last command must be a stop command
+    // so we can take the number of literals at the end of the input and put them into the stop command
     let num_stop_literals = CommandState(state[cur_pos]).num_literals() % 4;
 
+    // the current position includes the last byte of this literal, so subtract one
     let literal_pos = cur_pos + 1 - num_stop_literals as usize;
     controls.push(Control {
         command: Stop(num_stop_literals),
@@ -79,6 +83,7 @@ fn controls_from_state_slice(state: &[u32], input: &[u8]) -> Vec<Control> {
     cur_pos -= num_stop_literals as usize;
 
     loop {
+        // the bytes of the next command end at the current position
         let cur_command = CommandState(state[cur_pos]).to_command();
 
         if let Command::Literal(literal) = cur_command {
@@ -88,8 +93,10 @@ fn controls_from_state_slice(state: &[u32], input: &[u8]) -> Vec<Control> {
         let num_literal = cur_command.num_of_literal().unwrap_or(0);
         let num_copy = cur_command.offset_copy().unwrap_or((0, 0)).1;
 
+        // total number of bytes in the input that the current command encodes
         let command_decompressed_bytes = num_literal + num_copy;
 
+        // same as with the stop command
         let literal_pos = cur_pos + 1 - command_decompressed_bytes;
         controls.push(Control {
             command: cur_command,
@@ -97,12 +104,14 @@ fn controls_from_state_slice(state: &[u32], input: &[u8]) -> Vec<Control> {
         });
 
         if command_decompressed_bytes > cur_pos {
+            // the encoding should end at position -1, but unsigned integers cannot represent this
             debug_assert!(command_decompressed_bytes == cur_pos + 1);
             break;
         }
         cur_pos -= command_decompressed_bytes;
     }
 
+    // we built the controls in reverse order, so reverse the vec
     controls.reverse();
 
     controls
@@ -301,7 +310,10 @@ pub(crate) fn encode_slice_hc<'a, PS: PrefixSearcher<'a>>(input: &'a [u8]) -> Ve
         }
     }
 
+    // since we don't need the cost state for building the output command list
+    // we can drop it early to save on peak memory usage
     drop(cost_state);
 
+    // trace backwards through the command state to extract the output command list
     controls_from_state_slice(&command_state, input)
 }
