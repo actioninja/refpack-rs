@@ -111,14 +111,11 @@ fn controls_from_state_slice(state: &[u32], input: &[u8]) -> Vec<Control> {
 fn update_state_simd(
     cost_state: &mut [u32],
     command_state: &mut [u32],
-    cur_cost: u32,
-    command_bytes: u32,
+    new_cost: u32,
     range: Range<usize>,
     command_base: CommandState,
 ) {
     const CHUNK_SIZE: usize = 4;
-
-    let new_cost = cur_cost + command_bytes;
 
     let mut cost_state_chunks = cost_state[range.clone()].chunks_exact_mut(CHUNK_SIZE);
     let mut command_state_chunks = command_state[range].chunks_exact_mut(CHUNK_SIZE);
@@ -190,11 +187,13 @@ fn update_state_simd(
 /// and positions 1 and 2 can also be reached with a cost of 3 and 4 respectively (with 2 and 3 literal bytes).
 ///
 /// Once all positions have been opened it is known that the last cost state is the minimum cost
-/// for encoding all bytes in the input. It is then possible to encode all commands by tracing backwards 
+/// for encoding all bytes in the input. It is then possible to encode all commands by tracing backwards
 /// through the input while referencing the command state that is built in the search process.
 pub(crate) fn encode_slice_hc<'a, PS: PrefixSearcher<'a>>(input: &'a [u8]) -> Vec<Control> {
     let input_length = input.len();
 
+    // if the input is 3 bytes or fewer it is impossible to encode any copy commands
+    // just return the stop commands with the input as literal bytes
     if input_length <= 3 {
         return vec![Control {
             command: Stop(input_length as u8),
@@ -202,43 +201,69 @@ pub(crate) fn encode_slice_hc<'a, PS: PrefixSearcher<'a>>(input: &'a [u8]) -> Ve
         }];
     }
 
+    // build the prefix searcher
+    // it will give us all previous occurrences of the current position along with their match length
     let mut prev = PS::build(input);
 
+    // tracks the last command to encode all bytes in the input up to a certain point
     let mut command_state = vec![CommandState::default().0; input_length];
+    // tracks the maximum cost to encode all bytes in the input up to a certain position
     let mut cost_state = vec![u32::MAX; input_length];
+    // the state vecs could be combined into a single vec, but we store them separately for SIMD purposes
 
+    // we know the first byte must be encoded as a literal, thus the cost is 1
     cost_state[0] = 1;
+    // idem
     command_state[0] = CommandState::literal(1).0;
 
+    // go through all the byte positions in the input
     for pos in 0..(input_length as u32 - 1) {
+        // since this position has no unexplored predecessors
+        // we know the cost to reach this byte is equivalent to the stored cost state
         let cur_cost = cost_state[pos as usize];
+        // and the command to reach that state is the stored command
         let cur_command = command_state[pos as usize];
+        // get the number of literals that are passed on into the next command
+        // for copy commands this is always 0
         let cur_literals = CommandState(cur_command).num_literals();
 
         // there can't be any matches on the last 3 bytes since matches must always be at least 3 bytes
         if pos < (input_length - 3) as u32 {
+            // we want to try encoding bytes for the next byte onward since the current position is already known
+            // so the search position is the current position + 1
             let match_start_pos = pos + 1;
 
+            // search for all matches with the search position
             prev.search(
                 match_start_pos as usize,
                 |match_pos, match_start, match_end| {
+                    // for all bytes in this match, update the command and cost state
+                    // for all positions that have a lower cost than the stored cost state
+
                     debug_assert!(match_start < match_end);
 
                     let offset = match_start_pos as usize - match_pos;
 
+                    // loop through all ranges in the match that have an equal cost
+                    // for SIMD optimization purposes
                     let mut i = match_start;
                     while i < match_end {
                         if let Some((command_bytes, interval_limit)) = bytes_for_match(i, offset) {
+                            // get the cost to encode the current command (command_bytes)
                             if let Some(command_bytes) = command_bytes {
                                 let match_length_start = i;
                                 let match_length_end = min(interval_limit + 1, match_end);
                                 let range = (pos as usize + match_length_start)
                                     ..(pos as usize + match_length_end);
+
+                                // the cost for all encoded commands in this range
+                                let new_cost = cur_cost + command_bytes as u32;
+
+                                // now update the cost and command state in this range with the new cost
                                 update_state_simd(
                                     &mut cost_state,
                                     &mut command_state,
-                                    cur_cost,
-                                    command_bytes as u32,
+                                    new_cost,
                                     range,
                                     CommandState::command(
                                         offset as u32,
@@ -266,7 +291,7 @@ pub(crate) fn encode_slice_hc<'a, PS: PrefixSearcher<'a>>(input: &'a [u8]) -> Ve
             new_state_literal = 4;
         }
         if new_state_literal == 4 {
-            // we needed to add a new byte for the literal command
+            // a copy command cannot represent this, so we needed to add a new byte for the literal command
             literal_cost += 1;
         }
 
