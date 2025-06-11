@@ -255,7 +255,7 @@ impl Command {
     /// control mode used.
     #[must_use]
     pub fn new_stop(literal_length: usize) -> Self {
-        debug_assert!(
+        assert!(
             literal_length <= 3,
             "Stopcode recieved too long of a literal length (max {COPY_LITERAL_MAX}, got \
              {literal_length})"
