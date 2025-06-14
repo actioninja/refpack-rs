@@ -18,11 +18,30 @@ use crate::data::compression::prefix_search::hash_table::PrefixTable;
 use crate::data::compression::prefix_search::{PrefixSearcher, HASH_CHAIN_BUFFER_SIZE};
 use crate::data::control::{LONG_LENGTH_MAX, LONG_OFFSET_MAX};
 
+/// A match between the current position and the contained position
+///
+/// consider the following bytes [0, 0, 0, 0, 1, 0, 0, 0, 0, 0]
+/// which will have the following match positions, lengths, and skip lengths:
+/// pos: (match, length, skip) where "n" represents none
+/// 0: (n, n, n)
+/// 1: (0, 3, 3)
+/// 2-4: (n, n, n)
+/// 5: (1, 3, 4)
+/// 6: (5, 4, 4)
+/// 7: (6, 3, 3)
 #[derive(Copy, Clone, Debug)]
 struct Match {
+    /// the position of the matching sequence of bytes or u32::MAX 
     position: u32,
+    /// the next position that has exactly `length` matching bytes with the current position
+    /// and does not continue with the same byte as the match at `position`
+    /// 
+    /// that is, the byte at `position + length` != `bad_position + length`
     bad_position: u32,
+    /// the number of bytes that match between this position and the match position
     length: u16,
+    /// when following this chain by repeatedly following `position`,
+    /// this is the longest non-decreasing match length with the current position
     skip_length: u16,
 }
 
@@ -81,8 +100,22 @@ impl<const N: usize> MultiLevelHashChain<N> {
     }
 }
 
+/// This is an advanced version of the HashChain prefix searcher
+/// 
+/// In the case of N=1 this is essentially equivalent to a standard hash chain;
+/// every link in the hash chain points to the most recent previous occurrence of the prefix at that position.
+///
+/// The multi level hash chain extends the normal hash chain by implementing a structure similar to a skip list:
+/// levels of the chain that are above the lowest level will only refer to matches
+/// that match more bytes than the `skip_match_length` of the layer below it.
+///
+/// This structure produces intervals that tend to be spaced at distances that grow exponentially for each layer,
+/// meaning search actions through the graph take amortized logarithmic time.
+/// Certain degenerate cases can still lead to search times that appear linear,
+/// but a detailed algorithmic complexity analysis has not been done to identify these cases.
 pub(crate) struct MultiLevelPrefixSearcher<'a, const N: usize> {
     buffer: &'a [u8],
+    /// the latest found position of any prefix
     head: PrefixTable,
     prev: MultiLevelHashChain<N>,
 }
