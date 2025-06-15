@@ -121,6 +121,11 @@ pub(crate) struct MultiLevelPrefixSearcher<'a, const N: usize> {
 }
 
 impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
+    /// search for the longest non-decreasing match with `pos`
+    /// 
+    /// Will return all matches in the hash chain that have an increasingly large match length with
+    /// the position `pos`, starting the search from position `from` with the knowledge that `from` matches `pos`
+    /// with a length of `prev_matched_len` 
     fn search_break<F: FnMut(usize, usize)>(
         buffer: &[u8],
         prev: &MultiLevelHashChain<N>,
