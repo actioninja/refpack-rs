@@ -134,20 +134,18 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
         mut prev_matched_len: u16,
         mut found_fn: F,
     ) -> (usize, usize) {
+        // position past which we know that no match can be encoded
         let long_offset_limit = pos.saturating_sub(LONG_OFFSET_MAX as usize);
         let mut prev_from = from;
         let mut prev_prev_match_len = prev_matched_len;
 
-        'outer: loop {
-            if prev_matched_len >= LONG_LENGTH_MAX || from < long_offset_limit {
-                break;
-            }
-            for n in 0..N {
-                let n_match_length = prev.at(from).prev[n].length;
-                if n_match_length == 0 || n_match_length > prev_matched_len {
+        'outer: while prev_matched_len < LONG_LENGTH_MAX && from >= long_offset_limit {
+            for level in 0..N {
+                let level_match_length = prev.at(from).prev[level].length;
+                if level_match_length == 0 || level_match_length > prev_matched_len {
                     break 'outer;
-                } else if n_match_length == prev_matched_len {
-                    let match_pos = prev.at(from).prev[n].position;
+                } else if level_match_length == prev_matched_len {
+                    let match_pos = prev.at(from).prev[level].position;
                     let match_len = match_length(
                         buffer,
                         pos,
@@ -168,7 +166,7 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
                         continue 'outer;
                     }
                     break 'outer;
-                } else if n_match_length > prev_matched_len {
+                } else if level_match_length > prev_matched_len {
                     break 'outer;
                 }
             }
