@@ -31,11 +31,11 @@ use crate::data::control::{LONG_LENGTH_MAX, LONG_OFFSET_MAX};
 /// 7: (6, 3, 3)
 #[derive(Copy, Clone, Debug)]
 struct Match {
-    /// the position of the matching sequence of bytes or u32::MAX 
+    /// the position of the matching sequence of bytes or u32::MAX
     position: u32,
     /// the next position that has exactly `length` matching bytes with the current position
     /// and does not continue with the same byte as the match at `position`
-    /// 
+    ///
     /// that is, the byte at `position + length` != `bad_position + length`
     bad_position: u32,
     /// the number of bytes that match between this position and the match position
@@ -101,7 +101,7 @@ impl<const N: usize> MultiLevelHashChain<N> {
 }
 
 /// This is an advanced version of the HashChain prefix searcher
-/// 
+///
 /// In the case of N=1 this is essentially equivalent to a standard hash chain;
 /// every link in the hash chain points to the most recent previous occurrence of the prefix at that position.
 ///
@@ -121,56 +121,71 @@ pub(crate) struct MultiLevelPrefixSearcher<'a, const N: usize> {
 }
 
 impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
-    /// search for the longest non-decreasing match with `pos`
-    /// 
+    /// search for the longest increasing match with `pos`
+    ///
     /// Will return all matches in the hash chain that have an increasingly large match length with
     /// the position `pos`, starting the search from position `from` with the knowledge that `from` matches `pos`
-    /// with a length of `prev_matched_len` 
+    /// with a length of `from_matched_len`
+    ///
+    /// The longest match of this chain is not returned, since it is often a good candidate for storing in
+    /// higher levels of the hash chain.
+    ///
+    /// Returns the position to continue searching from to find more matches.
     fn search_break<F: FnMut(usize, usize)>(
         buffer: &[u8],
         prev: &MultiLevelHashChain<N>,
         pos: usize,
         mut from: usize,
-        mut prev_matched_len: u16,
+        mut from_matched_len: u16,
         mut found_fn: F,
     ) -> (usize, usize) {
         // position past which we know that no match can be encoded
         let long_offset_limit = pos.saturating_sub(LONG_OFFSET_MAX as usize);
         let mut prev_from = from;
-        let mut prev_prev_match_len = prev_matched_len;
+        let mut prev_from_matched_len = from_matched_len;
 
-        while prev_matched_len < LONG_LENGTH_MAX && from >= long_offset_limit {
-            let found = (0..N).find_map(|level| {
-                let level_match_length = prev.at(from).prev[level].length;
-                if level_match_length == prev_matched_len {
-                    let match_pos = prev.at(from).prev[level].position;
-                    let match_len = match_length(
-                        buffer,
-                        pos,
-                        match_pos as usize,
-                        LONG_LENGTH_MAX as usize,
-                        prev_matched_len as usize,
-                    );
-                    Some(Some((match_pos, match_len)))
-                } else if level_match_length == 0 || level_match_length > prev_matched_len {
-                    Some(None)
-                } else {
-                    None
-                }
-            }).flatten();
+        while from_matched_len < LONG_LENGTH_MAX && from >= long_offset_limit {
+            // find the level that has a match length that is equal to the match length with the `from` position
+            // having an equal match length means that the match potentially has more bytes in common with `pos`
+            // since the byte past the match length differs from the byte at the `from` position
+            let found = (0..N)
+                .find_map(|level| {
+                    let level_match_length = prev.at(from).prev[level].length;
+                    if level_match_length == from_matched_len {
+                        let match_pos = prev.at(from).prev[level].position;
+                        let match_len = match_length(
+                            buffer,
+                            pos,
+                            match_pos as usize,
+                            LONG_LENGTH_MAX as usize,
+                            from_matched_len as usize,
+                        );
+                        Some(Some((match_pos, match_len)))
+                    } else if level_match_length == 0 || level_match_length > from_matched_len {
+                        // the match lengths in the chain always increase in length with levels so if the match length of
+                        // the current level is greater than the current match length there cannot be an equal length match
+                        Some(None)
+                    } else {
+                        None
+                    }
+                })
+                .flatten();
 
             if let Some((match_pos, match_len)) = found {
-                if match_len > prev_matched_len as usize {
+                if match_len > from_matched_len as usize {
+                    // optimization: do not skip the longest match in this chain
+                    // since these are often good candidates for nice skip intervals
                     if from != prev_from {
-                        found_fn(from, prev_matched_len as usize);
+                        found_fn(from, from_matched_len as usize);
                     }
 
                     prev_from = from;
-                    prev_prev_match_len = prev_matched_len;
+                    prev_from_matched_len = from_matched_len;
 
                     from = match_pos as usize;
-                    prev_matched_len = match_len as u16;
+                    from_matched_len = match_len as u16;
                 } else {
+                    // match_len == from_match_len
                     break;
                 }
             } else {
@@ -178,7 +193,7 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
             }
         }
 
-        (prev_from, prev_prev_match_len as usize)
+        (prev_from, prev_from_matched_len as usize)
     }
 
     fn search_from_offset<F: Fn(u32, u16) -> u16>(
