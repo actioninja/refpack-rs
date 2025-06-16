@@ -139,12 +139,10 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
         let mut prev_from = from;
         let mut prev_prev_match_len = prev_matched_len;
 
-        'outer: while prev_matched_len < LONG_LENGTH_MAX && from >= long_offset_limit {
-            for level in 0..N {
+        while prev_matched_len < LONG_LENGTH_MAX && from >= long_offset_limit {
+            let found = (0..N).find_map(|level| {
                 let level_match_length = prev.at(from).prev[level].length;
-                if level_match_length == 0 || level_match_length > prev_matched_len {
-                    break 'outer;
-                } else if level_match_length == prev_matched_len {
+                if level_match_length == prev_matched_len {
                     let match_pos = prev.at(from).prev[level].position;
                     let match_len = match_length(
                         buffer,
@@ -153,24 +151,31 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
                         LONG_LENGTH_MAX as usize,
                         prev_matched_len as usize,
                     );
-                    if match_len > prev_matched_len as usize {
-                        if from != prev_from {
-                            found_fn(from, prev_matched_len as usize);
-                        }
-
-                        prev_from = from;
-                        prev_prev_match_len = prev_matched_len;
-
-                        from = match_pos as usize;
-                        prev_matched_len = match_len as u16;
-                        continue 'outer;
-                    }
-                    break 'outer;
-                } else if level_match_length > prev_matched_len {
-                    break 'outer;
+                    Some(Some((match_pos, match_len)))
+                } else if level_match_length == 0 || level_match_length > prev_matched_len {
+                    Some(None)
+                } else {
+                    None
                 }
+            }).flatten();
+
+            if let Some((match_pos, match_len)) = found {
+                if match_len > prev_matched_len as usize {
+                    if from != prev_from {
+                        found_fn(from, prev_matched_len as usize);
+                    }
+
+                    prev_from = from;
+                    prev_prev_match_len = prev_matched_len;
+
+                    from = match_pos as usize;
+                    prev_matched_len = match_len as u16;
+                } else {
+                    break;
+                }
+            } else {
+                break;
             }
-            break;
         }
 
         (prev_from, prev_prev_match_len as usize)
