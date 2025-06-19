@@ -196,15 +196,24 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
         (prev_from, prev_from_matched_len as usize)
     }
 
+    /// search for the next match that is longer than `min_length`
+    /// where `match_fn` is the byte-wise comparison function
+    ///
+    /// Returns the tuple (match_pos, match_len)
     fn search_from_offset<F: Fn(u32, u16) -> u16>(
         prev: &MultiLevelHashChain<N>,
         pos: usize,
         min_length: usize,
         mut from: usize,
-        mut prev_matched_len: u16,
+        mut from_matched_len: u16,
         match_fn: F,
     ) -> Option<(usize, usize)> {
+        // the maximum positions after which matches can no longer be encoded
         let long_offset_limit = pos.saturating_sub(LONG_OFFSET_MAX as usize);
+        // the current search level
+        // this function can also be implemented by looping through all levels at every position
+        // but since consecutive searches often result in the same level
+        // we remember the level and reuse it in the next position as a starting point
         let mut level = 0;
 
         'outer: loop {
@@ -212,62 +221,101 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
                 return None;
             }
 
-            let p = prev.at(from);
+            // get a reference to the current position that we can reuse
+            let cur_pos_chain = prev.at(from);
 
+            // try to find the level that has an exact match with the current match length
+            // since all levels that do not have an equal length cannot extend the current match
             loop {
-                let pl = p.prev[level];
+                // copy the match for the current level into the stack
+                // this is efficient because it can be done using SIMD
+                let cur_level_match = cur_pos_chain.prev[level];
 
-                if pl.length == 0 {
+                if cur_level_match.length == 0 {
+                    // either we are past the maximum level at this position
+                    // or (at level == 0) there are no matches at all with this prefix
                     if level == 0 {
                         return None;
                     }
                     level -= 1;
-                } else if prev_matched_len < pl.length {
-                    if level == 0 || prev_matched_len > p.prev[level - 1].skip_length {
-                        from = pl.position as usize;
+                } else if from_matched_len < cur_level_match.length {
+                    // the current match length is more than the match with the current position, meaning if there is
+                    // an equal match length it must be in a level that is lower than the current level
+                    if level == 0 || from_matched_len > cur_pos_chain.prev[level - 1].skip_length {
+                        // either there are no levels below this, or the match length below is smaller than the current
+                        // meaning there is no exact match at this position, so move to the next position in the chain
+                        // follow the level that is larger than the current match length
+                        // as all matches between the current position and the match must be too small
+                        from = cur_level_match.position as usize;
+                        // the match length does not change since this match matches more bytes than the current match length
                         continue 'outer;
                     }
                     level -= 1;
-                } else if prev_matched_len == pl.length {
-                    if (pl.position as usize) < long_offset_limit {
+                } else if from_matched_len == cur_level_match.length {
+                    // we found an exact match with the match length of the current position
+                    // so this is a good candidate for extending the match length
+
+                    if (cur_level_match.position as usize) < long_offset_limit {
+                        // early exit so we don't have to check match length
                         return None;
                     }
 
-                    let match_len = match_fn(pl.position, prev_matched_len);
+                    // check the actual match length with the candidate position
+                    let match_len = match_fn(cur_level_match.position, from_matched_len);
                     if match_len as usize > min_length {
-                        return Some((pl.position as usize, match_len as usize));
+                        // the match is longer than the requested minimum length, so return it
+                        return Some((cur_level_match.position as usize, match_len as usize));
                     }
 
-                    if match_len as usize == pl.length as usize {
-                        if pl.bad_position == u32::MAX
-                            || (pl.bad_position as usize) < long_offset_limit
+                    if match_len as usize == cur_level_match.length as usize {
+                        // bad match
+                        // we could not extend the match, so we need to find a position that matches just as many bytes
+                        // but has a different next byte than the candidate position
+                        if cur_level_match.bad_position == u32::MAX
+                            || (cur_level_match.bad_position as usize) < long_offset_limit
                         {
+                            // there is no viable bad match position
+                            // so there cannot be any match with a different continuation byte
                             return None;
                         }
 
-                        let match_len = match_fn(pl.bad_position, prev_matched_len);
+                        // check the match length with the bad match position
+                        let match_len = match_fn(cur_level_match.bad_position, from_matched_len);
                         if match_len as usize > min_length {
-                            return Some((pl.bad_position as usize, match_len as usize));
+                            // same as above
+                            return Some((
+                                cur_level_match.bad_position as usize,
+                                match_len as usize,
+                            ));
                         }
 
-                        prev_matched_len = match_len;
-                        from = pl.bad_position as usize;
+                        // whether the match was extended or not doesn't matter, we'll follow it either way
+                        // as it is the farthest point that we know of where all in between positions can't be a good match
+                        from_matched_len = match_len;
+                        from = cur_level_match.bad_position as usize;
                         continue 'outer;
                     }
-                    prev_matched_len = match_len;
-                    from = pl.position as usize;
+
+                    // the candidate position was a good match and extended the match length, follow it
+                    from_matched_len = match_len;
+                    from = cur_level_match.position as usize;
                     continue 'outer;
-                } else if prev_matched_len <= pl.skip_length {
-                    prev_matched_len = pl.length;
-                    from = pl.position as usize;
+                } else if from_matched_len <= cur_level_match.skip_length {
+                    // from_matched_len > cur_level_match.length;
+                    // there might be a good match somewhere in the skip sequence, follow it
+                    from_matched_len = cur_level_match.length;
+                    from = cur_level_match.position as usize;
                     continue 'outer;
                 } else {
-                    // prev_matched_len > pl.skip_match_length
+                    // from_matched_len > cur_level_match.skip_length
+                    // a good match might be in a higher level, so try to go up a level and check there
                     if level == N - 1 {
-                        prev_matched_len = pl.length;
-                        from = pl.position as usize;
+                        // we're already at the max level, follow this match
+                        from_matched_len = cur_level_match.length;
+                        from = cur_level_match.position as usize;
                         continue 'outer;
-                    } else if p.prev[level + 1].length == 0 {
+                    } else if cur_pos_chain.prev[level + 1].length == 0 {
+                        // the level above this has no match so there can't be any match
                         return None;
                     }
                     level += 1;
