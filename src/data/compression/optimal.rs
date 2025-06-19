@@ -68,7 +68,7 @@ fn controls_from_state_slice(state: &[u32], input: &[u8]) -> Vec<Control> {
     let mut cur_pos = state.len() - 1;
     // add the output controls in reverse order in this list
     let mut controls = vec![];
-    
+
     // special handling of the last literals: the last command must be a stop command
     // so we can take the number of literals at the end of the input and put them into the stop command
     let num_stop_literals = CommandState(state[cur_pos]).num_literals() % 4;
