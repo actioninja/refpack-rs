@@ -317,6 +317,11 @@ impl<const N: usize> MultiLevelPrefixSearcher<'_, N> {
                     } else if cur_pos_chain.prev[level + 1].length == 0 {
                         // the level above this has no match so there can't be any match
                         return None;
+                    } else if from_matched_len < cur_pos_chain.prev[level + 1].length {
+                        // this would also happen if we just continue to the outer loop, but this saves some lookups
+                        from = cur_pos_chain.prev[level + 1].position as usize;
+                        level += 1;
+                        continue 'outer;
                     }
                     level += 1;
                 }
