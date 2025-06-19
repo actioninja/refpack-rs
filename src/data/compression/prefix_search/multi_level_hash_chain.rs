@@ -86,7 +86,7 @@ impl<const N: usize> MultiLevelHashChain<N> {
 
     fn at(&self, i: usize) -> &HashChainLink<N> {
         #[cfg(debug_assertions)]
-        debug_assert!(self.last_index - i <= LONG_OFFSET_MAX as usize);
+        debug_assert!(i < HASH_CHAIN_BUFFER_SIZE || self.last_index - i <= LONG_OFFSET_MAX as usize);
         &self.data[i % HASH_CHAIN_BUFFER_SIZE]
     }
 
@@ -344,7 +344,11 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
     fn search<F: FnMut(usize, usize, usize)>(&mut self, search_position: usize, mut found_fn: F) {
         let p = prefix_search::prefix(&self.buffer[search_position..]);
 
-        *self.prev.at_mut(search_position) = HashChainLink::default();
+        // reset the current link in the hash chain
+        // this is only really necessary when the hash chain buffer loops around
+        if search_position > HASH_CHAIN_BUFFER_SIZE {
+            *self.prev.at_mut(search_position) = HashChainLink::default();
+        }
 
         // matches have to be 3 bytes minimum, so skip match lengths 0 to 2
 
