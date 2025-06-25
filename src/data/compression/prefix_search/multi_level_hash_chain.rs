@@ -619,7 +619,7 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                             cur_pos = match_pos;
 
                             // if it's impossible to match more bytes than stop searching
-                            if len == LONG_LENGTH_MAX as usize {
+                            if len == max_possible_match {
                                 return;
                             }
                         }
