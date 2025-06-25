@@ -381,17 +381,21 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                 // matches have to be 3 bytes minimum, so skip match lengths 0 to 2
                 let mut max_matched = 2;
 
+                // a match cannot possibly be longer than this, because otherwise we'd either
+                // run into the boundary of the input or exceed the maximum copy length
                 let max_possible_match = min(
                     LONG_LENGTH_MAX as usize,
                     self.buffer.len() - search_position,
                 );
 
                 for cur_level in 0..N {
+                    // the level that the next match position gets calculated for
                     let next_level = cur_level + 1;
 
+                    // cache the match that we will use as a base position for further match searching
                     let cur_match = self.prev.at(search_position).prev[cur_level];
 
-                    // return the match found on this level
+                    // return the match that is on this level
                     found_fn(
                         cur_match.position as usize,
                         max_matched + 1,
@@ -399,13 +403,14 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                     );
                     max_matched = cur_match.length as usize;
 
+                    // if the maximum possible match was already found we can just return immediately
                     if cur_match.length as usize >= max_possible_match {
                         break;
                     }
 
                     // skip all the 'obvious' matches that are directly adjacent (except for the last one)
                     // these matches would take a lot of levels in the case of RLE sequences so we don't store them
-                    // skip_pos is the last position of the skip chain, continue searching from there
+                    // next_pos is the last position of the skip chain, the last position is always stored
                     let (_skip_pos, skip_len, next_pos, next_len) = Self::search_break(
                         self.buffer,
                         &self.prev,
@@ -439,6 +444,7 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                             self.prev.at_mut(search_position).prev[next_level].length =
                                 next_len as u16;
 
+                            // the good position was found, but the bad position also still needs to be found
                             if let Some((bad_pos, _bad_len)) = Self::search_from_offset(
                                 &self.prev,
                                 search_position,
@@ -463,6 +469,9 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                             continue;
                         }
 
+                        // there was no skip chain, so continue the search as normal
+
+                        // now search for the position that either matches more bytes or has a different non-matching byte
                         if let Some((first_pos, first_len)) = Self::search_from_offset(
                             &self.prev,
                             search_position,
@@ -553,6 +562,8 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                             break;
                         }
                     } else {
+                        // on the last level don't search for the good position for the next level
+
                         if let Some((bpos, _blen)) = Self::search_from_offset(
                             &self.prev,
                             search_position,
@@ -570,18 +581,22 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                                 )
                             },
                         ) {
+                            // found the bad position
                             self.prev.at_mut(search_position).prev[cur_level].bad_position =
                                 bpos as u32;
                         }
 
-                        // last loop, find the rest of the matches for the search function
+                        // last loop, find the rest of the matches for the search function but don't store anything
+
                         if next_pos != cur_match.position as usize {
+                            // if there was a skip chain the last position still needs to be returned
                             found_fn(next_pos, max_matched + 1, next_len + 1);
                             max_matched = next_len;
                         }
 
                         let mut cur_pos = next_pos;
 
+                        // continue searching from the last found position
                         while let Some((match_pos, len)) = Self::search_from_offset(
                             &self.prev,
                             search_position,
@@ -598,10 +613,12 @@ impl<'a, const N: usize> PrefixSearcher<'a> for MultiLevelPrefixSearcher<'a, N> 
                                 ) as u16
                             },
                         ) {
+                            // found a match, return it
                             found_fn(match_pos, max_matched + 1, len + 1);
                             max_matched = len;
                             cur_pos = match_pos;
 
+                            // if it's impossible to match more bytes than stop searching
                             if len == LONG_LENGTH_MAX as usize {
                                 return;
                             }
