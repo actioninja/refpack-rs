@@ -108,6 +108,7 @@ pub fn match_length(
     match_length_simd(buffer, source + skip, matched_pos + skip, max_len - skip) + skip
 }
 
+/// does the byte at the two positions with the specified offset (`skip`) match?
 pub fn byte_offset_matches(buffer: &[u8], source: usize, matched_pos: usize, skip: usize) -> bool {
     debug_assert!(matched_pos < source);
 
@@ -122,6 +123,12 @@ pub fn byte_offset_matches(buffer: &[u8], source: usize, matched_pos: usize, ski
     buffer[source_idx] == buffer[match_idx]
 }
 
+/// check for any sequence of bytes that matches exactly `except_match_length` bytes with the source position
+///
+/// For any position that fulfils this condition the function will return `except_match_length` + 1.
+/// Any other position will return the match length of that position up to `except_match_length` bytes.
+///
+/// `skip` can be used to specify the number of bytes that is already known to be matching
 pub fn match_length_except(
     buffer: &[u8],
     source: usize,
@@ -144,6 +151,10 @@ pub fn match_length_except(
     }) as u16
 }
 
+/// check for any sequence of bytes that matches with `matched_pos`
+/// OR matches `or_match_pos` exactly `or_match_length` bytes
+///
+/// `skip` can be used to specify the number of bytes that is already known to be matching
 pub fn match_length_or(
     buffer: &[u8],
     source: usize,
