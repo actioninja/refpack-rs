@@ -21,6 +21,10 @@ use crate::data::control::{
     SHORT_OFFSET_MIN,
 };
 
+/// The maximum amount of positions in the hash chain that the algorithm will check before stopping the search.
+/// This cannot be a simple configuration variable as doing so will incur some performance penalty in the hot loop.
+const MAX_HASH_CHAIN_SEARCH_ITERATIONS: usize = 0x80;
+
 /// Reads from an incoming `Read` reader and compresses and encodes to
 /// `Vec<Control>`
 pub(crate) fn encode(input: &[u8]) -> Vec<Control> {
@@ -37,7 +41,7 @@ pub(crate) fn encode(input: &[u8]) -> Vec<Control> {
         let matched = prefix_table.insert(key, i as u32);
 
         let pair = matched
-            .take(0x80)
+            .take(MAX_HASH_CHAIN_SEARCH_ITERATIONS)
             .filter_map(|matched| {
                 let matched = matched as usize;
                 let distance = i - matched;
