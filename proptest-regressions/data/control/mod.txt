@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc c31ce2b703081d9288a7b2b2d0996bd9cb59a46d5ae939ffbe6bc845b88b5e4a # shrinks to input = _SymmetricalAnyCommandArgs { input: Medium { literal: 0, length: 4, offset: 1 } }
+cc 6046e751ebd94e618b8a9c14b2cb8e590a2e330853448f085f85fd86781e3601 # shrinks to input = _SymmetricalCommandCopyArgs { offset: 1, length: 11, literal: 0 }
