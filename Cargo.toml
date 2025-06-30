@@ -1,12 +1,12 @@
 [package]
 name = "refpack"
-version = "4.0.2"
+version = "5.0.0"
 edition = "2021"
 rust-version = "1.66"
 description = "A crate providing compression/decompression for the RefPack compression format, utilized by many early 2000s EA games"
 repository = "https://github.com/actioninja/refpack-rs"
 readme = "README.md"
-authors = ["actioninja"]
+authors = ["actioninja", "chieltbest", "other contributors"]
 license = "MPL-2.0"
 categories = ["compression", "game-development"]
 keywords = ["refpack", "dbpf", "far", "ea", "qfs"]

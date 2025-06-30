@@ -4,8 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [Unreleased]
+
+## [5.0.0]
+### Added
+    - Provably optimal compression for the format utilizing deeper search techniques (#12) - @chieltbest
+### Changed
+    - all compression functions now take a `CompressionOptions` parameter. For now this just
+      specifies compression mode to use. The default is a fast, but not quite real-time capable
+      algorithm. A faster algorithm as well as an optimal one is provided. (#12) - @chieltbest
+
 
 ## [4.0.2]
 ### Documentation
