@@ -123,6 +123,7 @@ refpack::compress::<Reference>(
     source_reader.get_ref().len(),
     &mut source_reader,
     &mut out_buf,
+    refpack::CompressionOptions::Optimal,
 )
 .unwrap();
 ```
