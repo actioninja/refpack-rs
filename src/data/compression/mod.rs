@@ -43,7 +43,7 @@ pub(crate) mod prefix_search;
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use crate::data::compression::fast::encode;
-use crate::data::compression::optimal::{encode_slice_hc, HASH_CHAINING_LEVELS};
+use crate::data::compression::optimal::{HASH_CHAINING_LEVELS, encode_slice_hc};
 #[cfg(test)]
 use crate::data::compression::prefix_search::hash_chain::HashChainPrefixSearcher;
 use crate::data::compression::prefix_search::multi_level_hash_chain::MultiLevelPrefixSearcher;
@@ -58,8 +58,8 @@ use crate::data::control::{
     SHORT_OFFSET_MAX,
 };
 use crate::format::Format;
-use crate::header::mode::Mode as HeaderMode;
 use crate::header::Header;
+use crate::header::mode::Mode as HeaderMode;
 use crate::{RefPackError, RefPackResult};
 
 // used in both fast and high compression algorithms

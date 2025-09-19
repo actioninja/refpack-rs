@@ -15,7 +15,7 @@ use crate::data::compression::match_length::{
 };
 use crate::data::compression::prefix_search;
 use crate::data::compression::prefix_search::hash_table::PrefixTable;
-use crate::data::compression::prefix_search::{PrefixSearcher, HASH_CHAIN_BUFFER_SIZE};
+use crate::data::compression::prefix_search::{HASH_CHAIN_BUFFER_SIZE, PrefixSearcher};
 use crate::data::control::{LONG_LENGTH_MAX, LONG_OFFSET_MAX};
 
 /// A match between the current position and the contained position

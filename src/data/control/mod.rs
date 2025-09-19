@@ -274,11 +274,7 @@ impl Command {
             | Command::Literal(literal)
             | Command::Stop(literal) => literal,
         };
-        if num == 0 {
-            None
-        } else {
-            Some(num as usize)
-        }
+        if num == 0 { None } else { Some(num as usize) }
     }
 
     /// Get the offset and length of a copy command as a `(usize, usize)` tuple.

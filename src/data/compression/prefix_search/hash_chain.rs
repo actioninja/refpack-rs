@@ -9,10 +9,10 @@ use std::cmp::min;
 
 #[cfg(test)]
 use crate::data::compression::match_length::match_length;
-use crate::data::compression::prefix_search::hash_table::PrefixTable;
 use crate::data::compression::prefix_search::HASH_CHAIN_BUFFER_SIZE;
+use crate::data::compression::prefix_search::hash_table::PrefixTable;
 #[cfg(test)]
-use crate::data::compression::prefix_search::{prefix, PrefixSearcher};
+use crate::data::compression::prefix_search::{PrefixSearcher, prefix};
 #[cfg(test)]
 use crate::data::control::LONG_LENGTH_MAX;
 use crate::data::control::LONG_OFFSET_MAX;

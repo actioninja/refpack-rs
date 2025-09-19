@@ -12,9 +12,9 @@ use crate::data::compression::match_length::match_length;
 use crate::data::compression::prefix_search::hash_chain::HashChain;
 use crate::data::compression::prefix_search::prefix;
 use crate::data::control::{
+    COPY_LITERAL_MAX,
     Command,
     Control,
-    COPY_LITERAL_MAX,
     LITERAL_MAX,
     LONG_LENGTH_MAX,
     LONG_OFFSET_MAX,

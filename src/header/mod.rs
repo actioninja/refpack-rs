@@ -16,8 +16,8 @@ use proptest::prelude::*;
 #[cfg(test)]
 use test_strategy::Arbitrary;
 
-use crate::header::mode::Mode;
 use crate::RefPackResult;
+use crate::header::mode::Mode;
 
 pub mod mode;
 

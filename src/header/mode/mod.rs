@@ -16,8 +16,8 @@ pub use maxis::Maxis;
 pub use reference::Reference;
 pub use sim_ea::SimEA;
 
-use crate::header::Header;
 use crate::RefPackResult;
+use crate::header::Header;
 
 /// Represents a read and write format for a Header
 ///

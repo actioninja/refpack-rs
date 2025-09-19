@@ -9,7 +9,7 @@
 
 use proptest::prelude::*;
 use refpack::format::Reference;
-use refpack::{easy_compress, easy_decompress, CompressionOptions};
+use refpack::{CompressionOptions, easy_compress, easy_decompress};
 use refpack_sys::{refpack_compress, refpack_decompress};
 use test_strategy::proptest;
 

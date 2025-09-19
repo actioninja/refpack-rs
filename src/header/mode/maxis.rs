@@ -5,13 +5,14 @@
 //                                                                             /
 ////////////////////////////////////////////////////////////////////////////////
 
+use std::cmp::min;
 use std::io::{Read, Seek, Write};
 
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::header::mode::Mode;
 use crate::header::Header;
-use crate::{header, RefPackError, RefPackResult};
+use crate::header::mode::Mode;
+use crate::{RefPackError, RefPackResult, header};
 
 /// Header used by many Maxis and SimEA games
 ///
@@ -56,7 +57,12 @@ impl Mode for Maxis {
         writer.write_u32::<LittleEndian>(header.compressed_length.unwrap_or(0))?;
         writer.write_u8(FLAGS)?;
         writer.write_u8(header::MAGIC)?;
-        writer.write_u24::<BigEndian>(header.decompressed_length)?;
+        // This is only ever used to create a default size for the decompression buffer,
+        // so I believe this won't cause issues? Even official decompression seems to just ignore this
+        writer.write_u24::<BigEndian>(min(
+            header.decompressed_length,
+            0b11111111_11111111_11111111,
+        ))?;
         Ok(())
     }
 }
