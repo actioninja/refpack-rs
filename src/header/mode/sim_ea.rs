@@ -9,9 +9,9 @@ use std::io::{Read, Seek, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::header::mode::Mode;
 use crate::header::Header;
-use crate::{header, RefPackError, RefPackResult};
+use crate::header::mode::Mode;
+use crate::{RefPackError, RefPackResult, header};
 
 /// Header used by many Maxis and SimEA games
 /// The same as [Maxis](crate::header::mode::Maxis) but without the compressed
@@ -58,11 +58,7 @@ impl Flags {
 
 impl Mode for SimEA {
     fn length(decompressed_size: usize) -> usize {
-        if decompressed_size > 0xFF_FF_FF {
-            6
-        } else {
-            5
-        }
+        if decompressed_size > 0xFF_FF_FF { 6 } else { 5 }
     }
 
     fn read<R: Read + Seek>(reader: &mut R) -> RefPackResult<Header> {

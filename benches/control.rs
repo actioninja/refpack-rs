@@ -1,12 +1,12 @@
 use std::io::Cursor;
 
 use criterion::measurement::WallTime;
-use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use refpack::data::control::{Command, Control};
 use refpack::easy_decompress;
 use refpack::format::{Format, Reference};
-use refpack::header::mode::Mode as HeaderMode;
 use refpack::header::Header;
+use refpack::header::mode::Mode as HeaderMode;
 
 const CONST_BENCH_LENGTH: usize = 8096;
 

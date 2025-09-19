@@ -101,11 +101,11 @@
 //! ```
 use std::io::{Cursor, Read, Seek, Write};
 
+use crate::RefPackError;
 use crate::data::control::Command;
 use crate::data::{copy_from_reader, rle_decode_fixed};
 use crate::format::Format;
 use crate::header::Header;
-use crate::RefPackError;
 
 // Returning the internal buffer is the fastest way to return the data
 // since that way the buffer doesn't have to be copied,

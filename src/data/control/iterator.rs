@@ -49,8 +49,8 @@ mod test {
     use test_strategy::proptest;
 
     use super::*;
-    use crate::data::control::tests::generate_valid_control_sequence;
     use crate::data::control::Control;
+    use crate::data::control::tests::generate_valid_control_sequence;
 
     #[proptest]
     fn test_control_iterator(

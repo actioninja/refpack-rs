@@ -12,7 +12,7 @@ use std::ops::Range;
 use crate::data::compression::bytes_for_match;
 use crate::data::compression::prefix_search::PrefixSearcher;
 use crate::data::control::Command::Stop;
-use crate::data::control::{Command, Control, COPY_LITERAL_MAX, LITERAL_MAX};
+use crate::data::control::{COPY_LITERAL_MAX, Command, Control, LITERAL_MAX};
 
 pub(crate) const HASH_CHAINING_LEVELS: usize = 4;
 
@@ -44,11 +44,7 @@ impl CommandState {
     }
 
     fn num_literals(self) -> u8 {
-        if self.is_literal() {
-            self.0 as u8
-        } else {
-            0
-        }
+        if self.is_literal() { self.0 as u8 } else { 0 }
     }
 
     fn to_command(self) -> Command {

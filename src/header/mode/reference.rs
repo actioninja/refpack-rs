@@ -9,9 +9,9 @@ use std::io::{Read, Seek, Write};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
-use crate::header::mode::Mode;
-use crate::header::Header;
 use crate::RefPackResult;
+use crate::header::Header;
+use crate::header::mode::Mode;
 
 /// Earliest "Reference" implementation of header
 ///
