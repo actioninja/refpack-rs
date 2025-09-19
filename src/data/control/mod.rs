@@ -49,28 +49,28 @@ pub const COPY_LITERAL_MIN: u8 = 0;
 pub const COPY_LITERAL_MAX: u8 = 3;
 
 /// minimum offset distance for a short command
-pub const SHORT_OFFSET_MIN: u16 = 1;
+pub const SHORT_OFFSET_MIN: u32 = 1;
 
 /// maximum offset distance for a short command
-pub const SHORT_OFFSET_MAX: u16 = 1_024;
+pub const SHORT_OFFSET_MAX: u32 = 1_024;
 
 /// minimum length for a short command
-pub const SHORT_LENGTH_MIN: u8 = 3;
+pub const SHORT_LENGTH_MIN: u16 = 3;
 
 /// maximum length for a short command
-pub const SHORT_LENGTH_MAX: u8 = 10;
+pub const SHORT_LENGTH_MAX: u16 = 10;
 
 /// minimum offset distance for a medium command
-pub const MEDIUM_OFFSET_MIN: u16 = 1;
+pub const MEDIUM_OFFSET_MIN: u32 = 1;
 
 /// maximum offset distance for a medium command
-pub const MEDIUM_OFFSET_MAX: u16 = 16_384;
+pub const MEDIUM_OFFSET_MAX: u32 = 16_384;
 
 /// minimum length for a medium command
-pub const MEDIUM_LENGTH_MIN: u8 = 4;
+pub const MEDIUM_LENGTH_MIN: u16 = 4;
 
 /// maximum length for a medium command
-pub const MEDIUM_LENGTH_MAX: u8 = 67;
+pub const MEDIUM_LENGTH_MAX: u16 = 67;
 
 /// minimum offset distance for a long command
 pub const LONG_OFFSET_MIN: u32 = 1;
@@ -157,35 +157,21 @@ pub const LONG_LENGTH_MAX: u16 = 1_028;
 /// The highest allowed values of 112 is encoded as `0b1111_1011` which is `251`
 /// exactly. Any higher of a value would start seeping in to the stopcode range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Command {
-    /// Represents a two byte copy command
-    Short {
-        literal: u8,
-        length: u8,
-        offset: u16,
-    },
-    /// Represents a three byte copy command
-    Medium {
-        literal: u8,
-        length: u8,
-        offset: u16,
-    },
-    /// Represents a four byte copy command
-    Long {
-        literal: u8,
-        length: u16,
-        offset: u32,
-    },
-    /// Represents exclusively writing literal bytes from the stream
-    ///
-    /// u8: number of literal bytes following the command to write to the stream
-    Literal(u8),
-    /// Represents an end of stream, when this command is encountered during
-    /// decompression it's evaluated and then decompression halts
-    ///
-    /// u8: Number of literal bytes to write to the stream before ending
-    /// decompression
-    Stop(u8),
+pub struct Command {
+    pub offset: u32,
+    pub length: u16,
+    pub literal: u8,
+    pub kind: CommandKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum CommandKind {
+    Short,
+    Medium,
+    Long,
+    Literal,
+    Stop,
 }
 
 impl Command {
@@ -193,45 +179,48 @@ impl Command {
     /// # Panics
     /// Panics if you attempt to create an invalid Command in some way
     #[must_use]
-    pub fn new(offset: usize, length: usize, literal: usize) -> Self {
+    pub fn new(offset: u32, length: u16, literal: u8) -> Self {
         assert!(
-            literal <= COPY_LITERAL_MAX as usize,
+            literal <= COPY_LITERAL_MAX,
             "Literal length must be less than or equal to {COPY_LITERAL_MAX} for commands \
              ({literal})"
         );
 
-        if offset > LONG_OFFSET_MAX as usize || length > LONG_LENGTH_MAX as usize {
+        if offset > LONG_OFFSET_MAX || length > LONG_LENGTH_MAX {
             panic!(
                 "Invalid offset or length (Maximum offset {LONG_OFFSET_MAX}, got {offset}) \
                  (Maximum length {LONG_LENGTH_MAX}, got {length})"
             );
-        } else if offset > MEDIUM_OFFSET_MAX as usize || length > MEDIUM_LENGTH_MAX as usize {
+        } else if offset > MEDIUM_OFFSET_MAX || length > MEDIUM_LENGTH_MAX {
             assert!(
-                length >= LONG_LENGTH_MIN as usize,
+                length >= LONG_LENGTH_MIN,
                 "Length must be greater than or equal to {LONG_LENGTH_MIN} for long commands \
                  (Length: {length}) (Offset: {offset})"
             );
-            Self::Long {
-                offset: offset as u32,
-                length: length as u16,
-                literal: literal as u8,
+            Self {
+                offset,
+                length,
+                literal,
+                kind: CommandKind::Long,
             }
-        } else if offset > SHORT_OFFSET_MAX as usize || length > SHORT_LENGTH_MAX as usize {
+        } else if offset > SHORT_OFFSET_MAX || length > SHORT_LENGTH_MAX {
             assert!(
-                length >= MEDIUM_LENGTH_MIN as usize,
+                length >= MEDIUM_LENGTH_MIN,
                 "Length must be greater than or equal to {MEDIUM_LENGTH_MIN} for medium commands \
                  (Length: {length}) (Offset: {offset})"
             );
-            Self::Medium {
-                offset: offset as u16,
-                length: length as u8,
-                literal: literal as u8,
+            Self {
+                offset,
+                length,
+                literal,
+                kind: CommandKind::Medium,
             }
         } else {
-            Self::Short {
-                offset: offset as u16,
-                length: length as u8,
-                literal: literal as u8,
+            Self {
+                offset,
+                length,
+                literal,
+                kind: CommandKind::Short,
             }
         }
     }
@@ -241,12 +230,17 @@ impl Command {
     /// Panics if you attempt to create too long of a literal command. This
     /// depends on control mode used.
     #[must_use]
-    pub fn new_literal(length: usize) -> Self {
+    pub fn new_literal(length: u8) -> Self {
         assert!(
-            length <= LITERAL_MAX as usize,
+            length <= LITERAL_MAX,
             "Literal received too long of a literal length (max {LITERAL_MAX}, got {length})"
         );
-        Self::Literal(length as u8)
+        Self {
+            offset: 0,
+            length: 0,
+            literal: length,
+            kind: CommandKind::Literal,
+        }
     }
 
     /// Creates a new stopcode command block
@@ -256,25 +250,37 @@ impl Command {
     #[must_use]
     pub fn new_stop(literal_length: usize) -> Self {
         assert!(
-            literal_length <= 3,
+            literal_length <= COPY_LITERAL_MAX as usize,
             "Stopcode recieved too long of a literal length (max {COPY_LITERAL_MAX}, got \
              {literal_length})"
         );
-        Self::Stop(literal_length as u8)
+        Self {
+            offset: 0,
+            length: 0,
+            literal: literal_length as u8,
+            kind: CommandKind::Stop,
+        }
+    }
+
+    #[inline(always)]
+    pub fn new_stop_unchecked(literal_length: u8) -> Self {
+        Self {
+            offset: 0,
+            length: 0,
+            literal: literal_length,
+            kind: CommandKind::Stop,
+        }
     }
 
     /// Get number of literal bytes on the command, if they have any
     /// Returns `None` if the length is 0
     #[must_use]
     pub fn num_of_literal(self) -> Option<usize> {
-        let num = match self {
-            Command::Short { literal, .. }
-            | Command::Medium { literal, .. }
-            | Command::Long { literal, .. }
-            | Command::Literal(literal)
-            | Command::Stop(literal) => literal,
-        };
-        if num == 0 { None } else { Some(num as usize) }
+        if self.literal == 0 {
+            None
+        } else {
+            Some(self.literal as usize)
+        }
     }
 
     /// Get the offset and length of a copy command as a `(usize, usize)` tuple.
@@ -282,11 +288,10 @@ impl Command {
     /// Returns `None` if `self` is not a copy command.
     #[must_use]
     pub fn offset_copy(self) -> Option<(usize, usize)> {
-        match self {
-            Command::Short { offset, length, .. } | Command::Medium { offset, length, .. } => {
-                Some((offset as usize, length as usize))
+        match self.kind {
+            CommandKind::Short | CommandKind::Medium | CommandKind::Long => {
+                Some((self.offset as usize, self.length as usize))
             }
-            Command::Long { offset, length, .. } => Some((offset as usize, length as usize)),
             _ => None,
         }
     }
@@ -294,7 +299,7 @@ impl Command {
     /// Returns true if the command is a stopcode, false if it is not.
     #[must_use]
     pub fn is_stop(self) -> bool {
-        matches!(self, Command::Stop(_))
+        self.kind == CommandKind::Stop
     }
 
     /// Reference read implementation of short copy commands. See structure
@@ -303,18 +308,19 @@ impl Command {
     /// # Errors
     /// - [RefPackError::Io]: Failed to get remaining single byte from reader
     #[inline(always)]
-    pub fn read_short(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
+    pub fn read_short(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Self> {
         let byte1 = first as usize;
         let byte2: usize = reader.read_u8()?.into();
 
-        let offset = ((((byte1 & 0b0110_0000) << 3) | byte2) + 1) as u16;
-        let length = (((byte1 & 0b0001_1100) >> 2) + 3) as u8;
+        let offset = ((((byte1 & 0b0110_0000) << 3) | byte2) + 1) as u32;
+        let length = (((byte1 & 0b0001_1100) >> 2) + 3) as u16;
         let literal = (byte1 & 0b0000_0011) as u8;
 
-        Ok(Command::Short {
+        Ok(Self {
             offset,
             length,
             literal,
+            kind: CommandKind::Short,
         })
     }
 
@@ -324,19 +330,20 @@ impl Command {
     /// # Errors
     /// - [RefPackError::Io]: Failed to get remaining two bytes from reader
     #[inline(always)]
-    pub fn read_medium(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
+    pub fn read_medium(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Self> {
         let byte1: usize = first as usize;
         let byte2: usize = reader.read_u8()?.into();
         let byte3: usize = reader.read_u8()?.into();
 
-        let offset = ((((byte2 & 0b0011_1111) << 8) | byte3) + 1) as u16;
-        let length = ((byte1 & 0b0011_1111) + 4) as u8;
+        let offset = ((((byte2 & 0b0011_1111) << 8) | byte3) + 1) as u32;
+        let length = ((byte1 & 0b0011_1111) + 4) as u16;
         let literal = ((byte2 & 0b1100_0000) >> 6) as u8;
 
-        Ok(Command::Medium {
+        Ok(Self {
             offset,
             length,
             literal,
+            kind: CommandKind::Medium,
         })
     }
 
@@ -346,7 +353,7 @@ impl Command {
     /// # Errors
     /// - [RefPackError::Io]: Failed to get remaining three bytes from the reader
     #[inline(always)]
-    pub fn read_long(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Command> {
+    pub fn read_long(first: u8, reader: &mut (impl Read + Seek)) -> RefPackResult<Self> {
         let byte1: usize = first as usize;
         let byte2: usize = reader.read_u8()?.into();
         let byte3: usize = reader.read_u8()?.into();
@@ -357,10 +364,11 @@ impl Command {
 
         let literal = (byte1 & 0b0000_0011) as u8;
 
-        Ok(Command::Long {
+        Ok(Self {
             offset,
             length,
             literal,
+            kind: CommandKind::Long,
         })
     }
 
@@ -368,16 +376,21 @@ impl Command {
     /// for documentation
     #[inline(always)]
     #[must_use]
-    pub fn read_literal(first: u8) -> Command {
-        Command::Literal(((first & 0b0001_1111) << 2) + 4)
+    pub fn read_literal(first: u8) -> Self {
+        Self {
+            offset: 0,
+            length: 0,
+            literal: ((first & 0b0001_1111) << 2) + 4,
+            kind: CommandKind::Literal,
+        }
     }
 
     /// Reference read implementation of literal commands. See struct definition
     /// for documentation
     #[inline(always)]
     #[must_use]
-    pub fn read_stop(first: u8) -> Command {
-        Command::Stop(first & 0b0000_0011)
+    pub fn read_stop(first: u8) -> Self {
+        Self::new_stop_unchecked(first & 0b0000_0011)
     }
 
     /// Reads and decodes a command from a `Read + Seek` reader.
@@ -405,8 +418,8 @@ impl Command {
     ///   write data
     #[inline]
     pub fn write_short(
-        offset: u16,
-        length: u8,
+        offset: u32,
+        length: u16,
         literal: u8,
         writer: &mut (impl Write + Seek),
     ) -> RefPackResult<()> {
@@ -414,7 +427,7 @@ impl Command {
         let offset_adjusted = offset - 1;
 
         let first = ((offset_adjusted & 0b0000_0011_0000_0000) >> 3) as u8
-            | ((length_adjusted & 0b0000_0111) << 2)
+            | ((length_adjusted & 0b0000_0111) << 2) as u8
             | literal & 0b0000_0011;
         let second = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
 
@@ -431,15 +444,15 @@ impl Command {
     ///   write data
     #[inline]
     pub fn write_medium(
-        offset: u16,
-        length: u8,
+        offset: u32,
+        length: u16,
         literal: u8,
         writer: &mut (impl Write + Seek),
     ) -> RefPackResult<()> {
         let length_adjusted = length - 4;
         let offset_adjusted = offset - 1;
 
-        let first = 0b1000_0000 | length_adjusted & 0b0011_1111;
+        let first = (0b1000_0000 | length_adjusted & 0b0011_1111) as u8;
         let second = ((literal & 0b0000_0011) << 6) | (offset_adjusted >> 8) as u8;
         let third = (offset_adjusted & 0b0000_0000_1111_1111) as u8;
 
@@ -515,24 +528,14 @@ impl Command {
     /// - [RefPackError::Io]: Generic IO error occurred while attempting to
     ///   write data
     pub fn write(self, writer: &mut (impl Write + Seek)) -> RefPackResult<()> {
-        match self {
-            Command::Short {
-                offset,
-                length,
-                literal,
-            } => Self::write_short(offset, length, literal, writer),
-            Command::Medium {
-                offset,
-                length,
-                literal,
-            } => Self::write_medium(offset, length, literal, writer),
-            Command::Long {
-                offset,
-                length,
-                literal,
-            } => Self::write_long(offset, length, literal, writer),
-            Command::Literal(literal) => Self::write_literal(literal, writer),
-            Command::Stop(literal) => Self::write_stop(literal, writer),
+        match self.kind {
+            CommandKind::Short => Self::write_short(self.offset, self.length, self.literal, writer),
+            CommandKind::Medium => {
+                Self::write_medium(self.offset, self.length, self.literal, writer)
+            }
+            CommandKind::Long => Self::write_long(self.offset, self.length, self.literal, writer),
+            CommandKind::Literal => Self::write_literal(self.literal, writer),
+            CommandKind::Stop => Self::write_stop(self.literal, writer),
         }
     }
 }
@@ -570,7 +573,7 @@ impl Control {
     #[must_use]
     pub fn new_literal_block(bytes: &[u8]) -> Self {
         Self {
-            command: Command::new_literal(bytes.len()),
+            command: Command::new_literal(bytes.len() as u8),
             bytes: bytes.to_vec(),
         }
     }
@@ -611,6 +614,8 @@ impl Control {
     }
 }
 
+use crate::data::control::{Command as OldCommand, Control as OldControl};
+
 #[cfg(test)]
 pub(crate) mod tests {
     use std::io::{Cursor, SeekFrom};
@@ -626,10 +631,11 @@ pub(crate) mod tests {
             COPY_LITERAL_MIN..=COPY_LITERAL_MAX,
         )
             .prop_map(|(offset, length, literal)| {
-                Command::Short {
+                Command {
                     offset,
                     length,
                     literal,
+                    kind: CommandKind::Short,
                 }
             });
 
@@ -639,10 +645,11 @@ pub(crate) mod tests {
             COPY_LITERAL_MIN..=COPY_LITERAL_MAX,
         )
             .prop_map(|(offset, length, literal)| {
-                Command::Medium {
+                Command {
                     offset,
                     length,
                     literal,
+                    kind: CommandKind::Medium,
                 }
             });
 
@@ -652,16 +659,18 @@ pub(crate) mod tests {
             COPY_LITERAL_MIN..=COPY_LITERAL_MAX,
         )
             .prop_map(|(offset, length, literal)| {
-                Command::Long {
+                Command {
                     offset,
                     length,
                     literal,
+                    kind: CommandKind::Long,
                 }
             });
 
         let literal_strat = LITERAL_EFFECTIVE_MIN..=LITERAL_EFFECTIVE_MAX;
-        let literal =
-            Strategy::prop_map(literal_strat, |literal| Command::Literal((literal * 4) + 4));
+        let literal = Strategy::prop_map(literal_strat, |literal| {
+            Command::new_literal((literal * 4) + 4)
+        });
         prop_oneof![
             short_copy_strat,
             medium_copy_strat,
@@ -673,7 +682,7 @@ pub(crate) mod tests {
 
     pub fn generate_stopcode() -> BoxedStrategy<Command> {
         (COPY_LITERAL_MIN..=COPY_LITERAL_MAX)
-            .prop_map(Command::Stop)
+            .prop_map(Command::new_stop_unchecked)
             .boxed()
     }
 
@@ -716,9 +725,9 @@ pub(crate) mod tests {
 
     #[proptest]
     fn symmetrical_command_copy(
-        #[strategy(1..=131_071_usize)] offset: usize,
-        #[strategy(5..=1028_usize)] length: usize,
-        #[strategy(0..=3_usize)] literal: usize,
+        #[strategy(1..=131_071_u32)] offset: u32,
+        #[strategy(5..=1028_u16)] length: u16,
+        #[strategy(0..=3_u8)] literal: u8,
     ) {
         let expected = Command::new(offset, length, literal);
         let mut buf = Cursor::new(vec![]);
@@ -730,7 +739,7 @@ pub(crate) mod tests {
     }
 
     #[proptest]
-    fn symmetrical_command_literal(#[strategy(0..=27_usize)] literal: usize) {
+    fn symmetrical_command_literal(#[strategy(0..=27_u8)] literal: u8) {
         let real_length = (literal * 4) + 4;
 
         let expected = Command::new_literal(real_length);
@@ -773,7 +782,7 @@ pub(crate) mod tests {
     #[test]
     #[should_panic]
     fn command_reject_new_literal_invalid() {
-        let _invalid = Command::new_literal(8000);
+        let _invalid = Command::new_literal(u8::MAX);
     }
 
     #[test]
@@ -785,13 +794,13 @@ pub(crate) mod tests {
     #[test]
     #[should_panic]
     fn command_reject_new_invalid_high_length() {
-        let _invalid = Command::new(0, 500_000, 0);
+        let _invalid = Command::new(0, u16::MAX, 0);
     }
 
     #[test]
     #[should_panic]
     fn command_reject_new_invalid_high_literal() {
-        let _invalid = Command::new(0, 0, 6000);
+        let _invalid = Command::new(0, 0, u8::MAX);
     }
 
     #[proptest]

@@ -102,7 +102,7 @@
 use std::io::{Cursor, Read, Seek, Write};
 
 use crate::RefPackError;
-use crate::data::control::Command;
+use crate::data::control::{Command, CommandKind};
 use crate::data::{copy_from_reader, rle_decode_fixed};
 use crate::format::Format;
 use crate::header::Header;
@@ -124,74 +124,41 @@ fn decompress_internal<F: Format>(
     loop {
         let command = Command::read(reader)?;
 
-        match command {
-            Command::Short {
-                offset,
-                length,
-                literal,
-            }
-            | Command::Medium {
-                offset,
-                length,
-                literal,
-            } => {
-                if literal > 0 {
+        match command.kind {
+            CommandKind::Short | CommandKind::Medium | CommandKind::Long => {
+                if command.literal > 0 {
                     position = copy_from_reader(
                         &mut decompression_buffer,
                         reader,
                         position,
-                        literal as usize,
+                        command.literal as usize,
                     )?;
                 }
-                while position + length as usize > decompression_buffer.len() {
+                while position + command.length as usize > decompression_buffer.len() {
                     decompression_buffer.resize(decompression_buffer.len() * 2, 0);
                 }
                 position = rle_decode_fixed(
                     &mut decompression_buffer,
                     position,
-                    offset as usize,
-                    length as usize,
+                    command.offset as usize,
+                    command.length as usize,
                 )
                 .map_err(|error| RefPackError::ControlError { error, position })?;
             }
-            Command::Long {
-                offset,
-                length,
-                literal,
-            } => {
-                if literal > 0 {
-                    position = copy_from_reader(
-                        &mut decompression_buffer,
-                        reader,
-                        position,
-                        literal as usize,
-                    )?;
-                }
-                while position + length as usize > decompression_buffer.len() {
-                    decompression_buffer.resize(decompression_buffer.len() * 2, 0);
-                }
-                position = rle_decode_fixed(
-                    &mut decompression_buffer,
-                    position,
-                    offset as usize,
-                    length as usize,
-                )
-                .map_err(|error| RefPackError::ControlError { error, position })?;
-            }
-            Command::Literal(literal) => {
+            CommandKind::Literal => {
                 position = copy_from_reader(
                     &mut decompression_buffer,
                     reader,
                     position,
-                    literal as usize,
+                    command.literal as usize,
                 )?;
             }
-            Command::Stop(literal) => {
+            CommandKind::Stop => {
                 position = copy_from_reader(
                     &mut decompression_buffer,
                     reader,
                     position,
-                    literal as usize,
+                    command.literal as usize,
                 )?;
                 decompression_buffer.resize(position, 0);
                 break;
