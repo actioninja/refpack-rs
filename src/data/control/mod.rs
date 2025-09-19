@@ -28,7 +28,7 @@ pub const LITERAL_MAX: u8 = 112;
 
 /// "Real" maximum of literal value in a literal command once encoded
 ///
-/// Literal commands encode their value in a a special limit precision
+/// Literal commands encode their value in a special limited precision
 /// format
 ///
 /// Equivalent to `0`, written as an expression to convey the relation
@@ -36,7 +36,7 @@ pub const LITERAL_EFFECTIVE_MIN: u8 = (LITERAL_MIN - 4) / 4;
 
 /// "Real" maximum of literal value in a literal command once encoded
 ///
-/// Literal commands encode their value in a a special limit precision
+/// Literal commands encode their value in a special limited precision
 /// format
 ///
 /// Equivalent to `27`, written as an expression to convey the relation
