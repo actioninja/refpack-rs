@@ -1,5 +1,7 @@
 /target
 Cargo.lock
 /benches/bench_files
+/testing_corpus
+!/testing_corpus/silesia.zip
 
 /.idea
