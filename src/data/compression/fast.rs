@@ -71,13 +71,21 @@ pub(crate) fn encode(input: &[u8]) -> Vec<Control> {
                 controls.push(Control::new_literal_block(&literal_block[..split_point]));
                 let second_block = &literal_block[split_point..];
                 controls.push(Control::new(
-                    Command::new(distance, match_length, second_block.len()),
+                    Command::new(
+                        distance as u32,
+                        match_length as u16,
+                        second_block.len() as u8,
+                    ),
                     second_block.to_vec(),
                 ));
             } else {
                 // If it's not, just push a new block directly
                 controls.push(Control::new(
-                    Command::new(distance, match_length, literal_block.len()),
+                    Command::new(
+                        distance as u32,
+                        match_length as u16,
+                        literal_block.len() as u8,
+                    ),
                     literal_block.clone(),
                 ));
             }

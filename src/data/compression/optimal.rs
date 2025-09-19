@@ -11,8 +11,7 @@ use std::ops::Range;
 
 use crate::data::compression::bytes_for_match;
 use crate::data::compression::prefix_search::PrefixSearcher;
-use crate::data::control::Command::Stop;
-use crate::data::control::{COPY_LITERAL_MAX, Command, Control, LITERAL_MAX};
+use crate::data::control::{COPY_LITERAL_MAX, Command, CommandKind, Control, LITERAL_MAX};
 
 pub(crate) const HASH_CHAINING_LEVELS: usize = 4;
 
@@ -49,12 +48,12 @@ impl CommandState {
 
     fn to_command(self) -> Command {
         if self.is_literal() {
-            Command::new_literal((self.0 & 0xFF) as usize)
+            Command::new_literal((self.0 & 0xFF) as u8)
         } else {
             Command::new(
-                ((self.0 >> 13) & ((1 << 18) - 1)) as usize,
-                (self.0 & ((1 << 11) - 1)) as usize,
-                ((self.0 >> 11) & 3) as usize,
+                (self.0 >> 13) & ((1 << 18) - 1),
+                (self.0 & ((1 << 11) - 1)) as u16,
+                ((self.0 >> 11) & 3) as u8,
             )
         }
     }
@@ -72,7 +71,7 @@ fn controls_from_state_slice(state: &[u32], input: &[u8]) -> Vec<Control> {
     // the current position includes the last byte of this literal, so subtract one
     let literal_pos = cur_pos + 1 - num_stop_literals as usize;
     controls.push(Control {
-        command: Stop(num_stop_literals),
+        command: Command::new_stop_unchecked(num_stop_literals),
         bytes: input[literal_pos..literal_pos + num_stop_literals as usize].to_vec(),
     });
 
@@ -82,8 +81,8 @@ fn controls_from_state_slice(state: &[u32], input: &[u8]) -> Vec<Control> {
         // the bytes of the next command end at the current position
         let cur_command = CommandState(state[cur_pos]).to_command();
 
-        if let Command::Literal(literal) = cur_command {
-            assert_eq!(literal % 4, 0);
+        if let CommandKind::Literal = cur_command.kind {
+            assert_eq!(cur_command.literal % 4, 0);
         }
 
         let num_literal = cur_command.num_of_literal().unwrap_or(0);
@@ -201,7 +200,7 @@ pub(crate) fn encode_slice_hc<'a, PS: PrefixSearcher<'a>>(input: &'a [u8]) -> Ve
     // just return the stop commands with the input as literal bytes
     if input_length <= 3 {
         return vec![Control {
-            command: Stop(input_length as u8),
+            command: Command::new_stop_unchecked(input_length as u8),
             bytes: Vec::from(input),
         }];
     }
