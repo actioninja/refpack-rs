@@ -1,0 +1,12 @@
+[profile.decompression]
+default-filter = "test(decompress)"
+
+[profile.compression]
+default-filter = "test(compress)"
+
+[profile.symmetrical]
+default-filter = "test(symmetrical)"
+
+[profile.ci]
+fail-fast = false
+global-timeout = "15m"
