@@ -13,15 +13,15 @@ use std::{fs, io, iter};
 
 use criterion::measurement::WallTime;
 use criterion::{
-    criterion_group,
-    criterion_main,
     BenchmarkGroup,
     BenchmarkId,
     Criterion,
     SamplingMode,
     Throughput,
+    criterion_group,
+    criterion_main,
 };
-use rand::prelude::*;
+use rand::random;
 use refpack::data::compression::CompressionOptions;
 use refpack::format::Reference;
 use refpack::{compress, decompress, easy_compress, easy_decompress};
@@ -197,12 +197,9 @@ fn files_bench(c: &mut Criterion<WallTime>) {
         let _ = fs::create_dir(Path::new(BENCH_FILE_DIR));
         // download files with reqwest
         let mut buf = vec![];
-        ureq::get(BENCH_FILE_URL)
-            .call()
-            .unwrap()
-            .into_reader()
-            .read_to_end(&mut buf)
-            .unwrap();
+        let response = ureq::get(BENCH_FILE_URL).call().unwrap();
+        let mut reader = response.into_body().into_reader();
+        reader.read_to_end(&mut buf).unwrap();
         let mut out = fs::File::create("benches/silesia.zip").unwrap();
         out.write_all(&buf).unwrap();
         println!("Downloaded files");
