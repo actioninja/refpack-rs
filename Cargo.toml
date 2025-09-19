@@ -1,8 +1,8 @@
 [package]
 name = "refpack"
 version = "5.0.0"
-edition = "2021"
-rust-version = "1.66"
+edition = "2024"
+rust-version = "1.85"
 description = "A crate providing compression/decompression for the RefPack compression format, utilized by many early 2000s EA games"
 repository = "https://github.com/actioninja/refpack-rs"
 readme = "README.md"
@@ -18,14 +18,13 @@ include = ["src/**", "benches/**/*.rs", "tests/**", "Cargo.toml", "README.md", "
 byteorder = "1.5"
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
-paste = "1.0"
+criterion = { version = "0.7.0", features = ["html_reports"] }
 proptest = "1.0"
-rand = "0.8"
+rand = "0.9"
 test-strategy = "0.4"
 refpack-sys = { git = "https://github.com/actioninja/refpack-sys.git" }
-ureq = "2.6"
-zip = "2.2"
+ureq = "3.1"
+zip = "5.1"
 
 [[bench]]
 name = "synthetic_performance"
