@@ -143,6 +143,9 @@ fn decompress_internal<F: Format>(
                         literal as usize,
                     )?;
                 }
+                while position + length as usize > decompression_buffer.len() {
+                    decompression_buffer.resize(decompression_buffer.len() * 2, 0);
+                }
                 position = rle_decode_fixed(
                     &mut decompression_buffer,
                     position,
@@ -164,6 +167,9 @@ fn decompress_internal<F: Format>(
                         literal as usize,
                     )?;
                 }
+                while position + length as usize > decompression_buffer.len() {
+                    decompression_buffer.resize(decompression_buffer.len() * 2, 0);
+                }
                 position = rle_decode_fixed(
                     &mut decompression_buffer,
                     position,
@@ -181,12 +187,13 @@ fn decompress_internal<F: Format>(
                 )?;
             }
             Command::Stop(literal) => {
-                copy_from_reader(
+                position = copy_from_reader(
                     &mut decompression_buffer,
                     reader,
                     position,
                     literal as usize,
                 )?;
+                decompression_buffer.resize(position, 0);
                 break;
             }
         }
