@@ -11,6 +11,9 @@ use std::path::Path;
 use std::time::Duration;
 use std::{fs, io, iter};
 
+#[path = "../testing_corpus/corpus.rs"]
+mod corpus;
+
 use criterion::measurement::WallTime;
 use criterion::{
     BenchmarkGroup,
@@ -25,6 +28,8 @@ use rand::random;
 use refpack::data::compression::CompressionOptions;
 use refpack::format::Reference;
 use refpack::{compress, decompress, easy_compress, easy_decompress};
+
+use crate::corpus::{CORPUS_DIR, UNCOMPRESSED_DIR, prepare_corpus};
 
 const CONST_BENCH_LENGTHS: [usize; 7] =
     [1 << 6, 1 << 8, 1 << 10, 1 << 12, 1 << 14, 1 << 16, 1 << 18];
@@ -186,38 +191,12 @@ fn zeros_increasing_data_sets_bench(c: &mut Criterion<WallTime>) {
     increasing_data_sets_bench(c, "All Zero Input Data Increasing", zeros_vec);
 }
 
-const BENCH_FILE_DIR: &str = "benches/bench_files/";
-const BENCH_FILE_URL: &str = "https://sun.aei.polsl.pl//~sdeor/corpus/silesia.zip";
 
 fn files_bench(c: &mut Criterion<WallTime>) {
-    let num_files = fs::read_dir(BENCH_FILE_DIR).map(|x| x.count()).unwrap_or(0);
-    if num_files == 0 {
-        println!("Input bench files not found, downloading...");
-        // create dir
-        let _ = fs::create_dir(Path::new(BENCH_FILE_DIR));
-        // download files with reqwest
-        let mut buf = vec![];
-        let response = ureq::get(BENCH_FILE_URL).call().unwrap();
-        let mut reader = response.into_body().into_reader();
-        reader.read_to_end(&mut buf).unwrap();
-        let mut out = fs::File::create("benches/silesia.zip").unwrap();
-        out.write_all(&buf).unwrap();
-        println!("Downloaded files");
-        // unzip files
-        let mut archive =
-            zip::ZipArchive::new(fs::File::open("benches/silesia.zip").unwrap()).unwrap();
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i).unwrap();
-            let outpath = Path::new(BENCH_FILE_DIR).join(file.name());
-            let mut outfile = fs::File::create(&outpath).unwrap();
-            io::copy(&mut file, &mut outfile).unwrap();
-        }
-        println!("Unzipped files");
-        println!("Cleaning up...");
-        fs::remove_file("benches/silesia.zip").unwrap();
-    }
+    prepare_corpus().expect("Failed to prepare corpus");
+    let corpus_dir = Path::new(CORPUS_DIR).join(UNCOMPRESSED_DIR);
 
-    let mut entries = fs::read_dir(BENCH_FILE_DIR)
+    let mut entries = fs::read_dir(corpus_dir)
         .unwrap()
         .map(|res| res.unwrap().path())
         .collect::<Vec<_>>();

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use refpack::format::Reference;
 use refpack::{CompressionOptions, easy_compress};
+use ureq::AsSendBody;
 use zip::ZipArchive;
 
 pub const CORPUS_DIR: &str = "testing_corpus";
@@ -16,6 +17,9 @@ pub const MARKER_CONTENTS: &str = "This is an automatically generated file to ma
 pub const UNCOMPRESSED_DIR: &str = "uncompressed";
 pub const COMPRESSED_DIR: &str = "compressed";
 
+// We leech off microsofts data in this house
+pub const SILESIA_CORPUS_URL: &str = "https://sun.aei.polsl.pl/~sdeor/corpus/silesia.zip";
+
 pub fn prepare_corpus() -> Result<(), io::Error> {
     let marker_path = Path::new(CORPUS_DIR).join(MARKER_FILE);
     let marker_exists = exists(&marker_path)?;
@@ -23,6 +27,16 @@ pub fn prepare_corpus() -> Result<(), io::Error> {
         return Ok(());
     }
     println!("Preparing corpus...");
+    println!("Downloading zip...");
+    let mut download_buf = vec![];
+    ureq::get(SILESIA_CORPUS_URL)
+        .call()
+        .expect("Failed to download corpus")
+        .as_body()
+        .into_reader()
+        .read_to_end(&mut download_buf)?;
+    let mut outfile = File::create(Path::new(CORPUS_DIR).join("silesia.zip"))?;
+    outfile.write_all(&download_buf)?;
     println!("Decompressing zip...");
     create_dir_all(Path::new(CORPUS_DIR).join(UNCOMPRESSED_DIR))?;
     let silesia_path = Path::new(CORPUS_DIR).join(SILESIA_ZIP);

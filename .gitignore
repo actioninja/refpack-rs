@@ -1,8 +1,7 @@
 /target
 Cargo.lock
 /benches/bench_files
-/testing_corpus/compressed
-/testing_corpus/uncompressed
-/testing_corpus/corpus_prepared.txt
+/testing_corpus
+!/testing_corpus/corpus.rs
 
 /.idea

@@ -1,1 +1,0 @@
-This is an automatically generated file to mark that the corpus has been prepared for tests and benchmarks. Delete it to regenerate the files.

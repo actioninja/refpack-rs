@@ -263,6 +263,7 @@ impl Command {
     }
 
     #[inline(always)]
+    #[must_use]
     pub fn new_stop_unchecked(literal_length: u8) -> Self {
         Self {
             offset: 0,
@@ -613,8 +614,6 @@ impl Control {
         Ok(())
     }
 }
-
-use crate::data::control::{Command as OldCommand, Control as OldControl};
 
 #[cfg(test)]
 pub(crate) mod tests {
