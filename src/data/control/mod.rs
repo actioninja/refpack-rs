@@ -614,8 +614,6 @@ impl Control {
     }
 }
 
-use crate::data::control::{Command as OldCommand, Control as OldControl};
-
 #[cfg(test)]
 pub(crate) mod tests {
     use std::io::{Cursor, SeekFrom};
