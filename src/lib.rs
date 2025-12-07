@@ -265,20 +265,24 @@ mod test {
     /// the decoder should not panic while decoding garbage data
     #[proptest]
     fn maxis_decompress_garbage(#[strategy(vec(0..=1u8, 1..1000))] mut data: Vec<u8>) {
-        // set the correct flags
-        data[4] = 0x10;
-        // set the correct magic
-        data[5] = 0xFB;
+        if data.len() >= 6 {
+            // set the correct flags
+            data[4] = 0x10;
+            // set the correct magic
+            data[5] = 0xFB;
+        }
         let _ = easy_decompress::<Maxis>(&data);
     }
 
     /// the decoder should not panic while decoding garbage data
     #[proptest]
     fn simea_decompress_garbage(#[strategy(vec(0..=1u8, 1..1000))] mut data: Vec<u8>) {
-        // set the correct flags
-        data[0] = 0x00;
-        // set the correct magic
-        data[1] = 0xFB;
+        if data.len() >= 2 {
+            // set the correct flags
+            data[0] = 0x00;
+            // set the correct magic
+            data[1] = 0xFB;
+        }
         let _ = easy_decompress::<SimEA>(&data);
     }
 }
