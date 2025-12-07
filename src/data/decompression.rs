@@ -99,6 +99,8 @@
 //! ```text
 //! DEADBEEFBEEFBEEFBEEFBEEF
 //! ```
+
+use std::cmp::max;
 use std::io::{Cursor, Read, Seek, Write};
 
 use crate::RefPackError;
@@ -135,7 +137,10 @@ fn decompress_internal<F: Format>(
                     )?;
                 }
                 while position + command.length as usize > decompression_buffer.len() {
-                    decompression_buffer.resize(decompression_buffer.len() * 2, 0);
+                    decompression_buffer.resize(
+                        max(command.length as usize, decompression_buffer.len() * 2),
+                        0,
+                    );
                 }
                 position = rle_decode_fixed(
                     &mut decompression_buffer,
