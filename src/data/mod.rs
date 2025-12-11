@@ -183,8 +183,9 @@ mod test {
     }
 
     mod rle_decode {
-        use super::*;
         use std::io::Cursor;
+
+        use super::*;
 
         #[test]
         fn errors_on_bad_offset() {
@@ -216,8 +217,8 @@ mod test {
                 copy_from_reader(&mut [0, 0], &mut Cursor::new([0; 10]), 1, 10).unwrap_err();
             assert_eq!(
                 error.to_string(),
-                "Error occured while decoding control block at position `1`:\n\
-                Decompressed data overran decompressed size in header by `9` bytes"
+                "Error occured while decoding control block at position `1`:\nDecompressed data \
+                 overran decompressed size in header by `9` bytes"
             );
         }
     }
