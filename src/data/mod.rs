@@ -183,8 +183,8 @@ mod test {
     }
 
     mod rle_decode {
-        use std::io::Cursor;
         use super::*;
+        use std::io::Cursor;
 
         #[test]
         fn errors_on_bad_offset() {
@@ -212,7 +212,8 @@ mod test {
 
         #[test]
         fn errors_on_bad_length_in_copy() {
-            let error = copy_from_reader(&mut [0, 0], &mut Cursor::new([0; 10]), 1, 10).unwrap_err();
+            let error =
+                copy_from_reader(&mut [0, 0], &mut Cursor::new([0; 10]), 1, 10).unwrap_err();
             assert_eq!(
                 error.to_string(),
                 "Error occured while decoding control block at position `1`:\n\
