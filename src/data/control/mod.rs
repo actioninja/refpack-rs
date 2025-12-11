@@ -263,6 +263,7 @@ impl Command {
     }
 
     #[inline(always)]
+    #[must_use]
     pub fn new_stop_unchecked(literal_length: u8) -> Self {
         Self {
             offset: 0,
