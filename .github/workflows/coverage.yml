@@ -18,10 +18,13 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Install llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Install cargo nextest
+        uses: taiki-e/install-action@nextest
       - name: Generate code coverage
         run: |
           mkdir coverage
-          cargo llvm-cov --all-features --workspace --lcov --output-path ./coverage/lcov.info
+          cargo llvm-cov nextest --no-report --profile ci
+          cargo llvm-cov report --lcov --output-path ./coverage/lcov.info
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@master
         with:

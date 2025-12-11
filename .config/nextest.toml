@@ -8,5 +8,11 @@ default-filter = "test(compress)"
 default-filter = "test(symmetrical)"
 
 [profile.ci]
+default-filter = "not test(integration)"
 fail-fast = false
-global-timeout = "15m"
+slow-timeout = { period = "5m", terminate-after = 5, grace-period = "2m" }
+
+[profile.ci-full]
+default-filter = "all()"
+fail-fast = false
+slow-timeout = { period = "3h", terminate-after = 2, grace-period = "15m" }
