@@ -30,7 +30,7 @@ pub enum DecodeError {
     /// - usize: buffer length
     /// - usize: offset requested
     NegativePosition(usize, usize),
-    /// Error indicating that during decompression, the RLE decode attempted to
+    /// Error indicating that during decompression, the decoder attempted to
     /// write past the end of the decompression buffer
     ///
     /// This error exists to prevent maliciously constructed data from using an
@@ -135,10 +135,12 @@ pub(crate) fn copy_from_reader(
     position: usize,
     length: usize,
 ) -> Result<usize, RefPackError> {
-    assert!(
-        buffer.len() >= position + length,
-        "Attempted to copy past end of input buffer; position: {position}; length: {length}"
-    );
+    if position + length > buffer.len() {
+        return Err(RefPackError::ControlError {
+            error: DecodeError::BadLength(position + length - buffer.len()),
+            position,
+        });
+    }
 
     reader.read_exact(&mut buffer[position..(position + length)])?;
 
@@ -181,6 +183,8 @@ mod test {
     }
 
     mod rle_decode {
+        use std::io::Cursor;
+
         use super::*;
 
         #[test]
@@ -204,6 +208,17 @@ mod test {
             assert_eq!(
                 error.to_string(),
                 "Decompressed data overran decompressed size in header by `9` bytes"
+            );
+        }
+
+        #[test]
+        fn errors_on_bad_length_in_copy() {
+            let error =
+                copy_from_reader(&mut [0, 0], &mut Cursor::new([0; 10]), 1, 10).unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                "Error occured while decoding control block at position `1`:\nDecompressed data \
+                 overran decompressed size in header by `9` bytes"
             );
         }
     }
