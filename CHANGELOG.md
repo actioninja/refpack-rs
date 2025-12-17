@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.3]
+
+## Fix
+    - Decompression has been slightly tweaked to panic in less situations in favor of returning an
+      error. This should help with parsing malformed files.
+
+## [5.0.2]
+
+## Fix
+    - Correct a warning accidentally left in previous release
+
 ## [5.0.1] - 2025-09-20
 
 ## Fix
@@ -120,6 +131,10 @@ First "production" version. This version was specialized for The Sims 2.
 
 
 [Unreleased]: https://github.com/actioninja/refpack-rs/compare/v5.0.1...HEAD
+
+[5.0.3]: https://github.com/actioninja/refpack-rs/compare/v5.0.2...v5.0.3
+
+[5.0.2]: https://github.com/actioninja/refpack-rs/compare/v5.0.1...v5.0.2
 
 [5.0.1]: https://github.com/actioninja/refpack-rs/compare/v5.0.0...v5.0.1
 
