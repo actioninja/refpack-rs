@@ -61,7 +61,7 @@ impl Mode for Maxis {
         // so I believe this won't cause issues? Even official decompression seems to just ignore this
         writer.write_u24::<BigEndian>(min(
             header.decompressed_length,
-            0b11111111_11111111_11111111,
+            0b1111_1111_1111_1111_1111_1111,
         ))?;
         Ok(())
     }
