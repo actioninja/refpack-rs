@@ -27,4 +27,4 @@ jobs:
       - name: Install cargo nextest
         uses: taiki-e/install-action@nextest
       - name: Run Cargo test
-        run: cargo nextest --profile ci-full
+        run: cargo nextest --profile ci-full run
