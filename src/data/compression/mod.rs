@@ -202,7 +202,7 @@ pub fn easy_compress<F: Format>(
     let header_length = F::HeaderMode::length(length);
 
     let header_position = writer.stream_position()?;
-    let data_start_pos = writer.seek(SeekFrom::Current(header_length as i64))?;
+    writer.seek(SeekFrom::Current(header_length as i64))?;
 
     for control in controls {
         control.write(&mut writer)?;
@@ -210,7 +210,7 @@ pub fn easy_compress<F: Format>(
 
     let data_end_pos = writer.stream_position()?;
 
-    let compression_length = data_end_pos - data_start_pos;
+    let compression_length = data_end_pos - header_position;
 
     let header = Header {
         compressed_length: Some(compression_length as u32),
@@ -229,7 +229,7 @@ mod test {
     use test_strategy::proptest;
 
     use super::*;
-    use crate::format::Reference;
+    use crate::format::{Maxis, Reference};
 
     #[proptest]
     #[ignore]
@@ -277,6 +277,24 @@ mod test {
             &compressed_reference,
             &compressed_optimal,
             "Optimal compression should match the reference implementation."
+        );
+    }
+
+    #[proptest]
+    fn compressed_size_includes_header(
+        #[strategy(proptest::collection::vec(0..=3u8, 1..=1_000))] input: Vec<u8>,
+    ) {
+        let compressed = easy_compress::<Maxis>(&input, CompressionOptions::Fastest)?;
+
+        let compressed_total_bytes = compressed.len();
+        let compressed_size_header =
+            u32::from_le_bytes(compressed[..4].try_into().unwrap()) as usize;
+
+        prop_assert_eq!(
+            compressed_total_bytes,
+            compressed_size_header,
+            "The compression header compressed size field should include the size of the header \
+             itself."
         );
     }
 }
