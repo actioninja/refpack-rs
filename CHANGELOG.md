@@ -7,15 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.4] - 2026-04-26
+
+## Fix
+
+    - Fixes an issue where the compression header on maxis type files wasn't including its own length
+      in the written compression size. This should resolve some issues with files that were touched
+      by this library in other tools that implement the format non-robustly.
+
 ## [5.0.3]
 
 ## Fix
+
     - Decompression has been slightly tweaked to panic in less situations in favor of returning an
       error. This should help with parsing malformed files.
 
 ## [5.0.2]
 
 ## Fix
+
     - Correct a warning accidentally left in previous release
 
 ## [5.0.1] - 2025-09-20
@@ -130,7 +140,9 @@ Major rewrite to support multiple formats while also resolving them at compile t
 First "production" version. This version was specialized for The Sims 2.
 
 
-[Unreleased]: https://github.com/actioninja/refpack-rs/compare/v5.0.1...HEAD
+[Unreleased]: https://github.com/actioninja/refpack-rs/compare/v5.0.4...HEAD
+
+[5.0.4]: https://github.com/actioninja/refpack-rs/compare/v5.0.3...v5.0.4
 
 [5.0.3]: https://github.com/actioninja/refpack-rs/compare/v5.0.2...v5.0.3
 
